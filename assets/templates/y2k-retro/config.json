@@ -1,0 +1,57 @@
+{
+  "id": "y2k-retro",
+  "canvas": {
+    "width": 600,
+    "height": 1800
+  },
+  "assets": {
+    "background": "bg.png",
+    "overlay": "overlay.png"
+  },
+  "photoSlots": [
+    {
+      "id": 0,
+      "captureIndex": 0,
+      "xPct": 0.586,
+      "yPct": 0.17,
+      "wPct": 0.673,
+      "hPct": 0.127,
+      "rotateDeg": 5.5,
+      "mirror": true,
+      "cornerRadius": 9
+    },
+    {
+      "id": 1,
+      "captureIndex": 1,
+      "xPct": 0.298,
+      "yPct": 0.374,
+      "wPct": 0.423,
+      "hPct": 0.143,
+      "rotateDeg": 1.5,
+      "mirror": true,
+      "cornerRadius": 9
+    },
+    {
+      "id": 2,
+      "captureIndex": 2,
+      "xPct": 0.496,
+      "yPct": 0.552,
+      "wPct": 0.797,
+      "hPct": 0.148,
+      "rotateDeg": -7,
+      "mirror": true,
+      "cornerRadius": 9
+    },
+    {
+      "id": 3,
+      "captureIndex": 3,
+      "xPct": 0.604,
+      "yPct": 0.755,
+      "wPct": 0.488,
+      "hPct": 0.162,
+      "rotateDeg": 12.5,
+      "mirror": true,
+      "cornerRadius": 9
+    }
+  ]
+}

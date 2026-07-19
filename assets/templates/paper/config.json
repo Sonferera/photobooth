@@ -1,0 +1,79 @@
+{
+  "id": "paper",
+  "canvas": {
+    "width": 1333,
+    "height": 2000
+  },
+  "assets": {
+    "background": "bg.png",
+    "overlay": "overlay.png"
+  },
+  "photoSlots": [
+    {
+      "id": 0,
+      "captureIndex": 0,
+      "xPct": 0.27,
+      "yPct": 0.278,
+      "wPct": 0.429,
+      "hPct": 0.214,
+      "rotateDeg": 0,
+      "mirror": true,
+      "cornerRadius": 0
+    },
+    {
+      "id": 1,
+      "captureIndex": 1,
+      "xPct": 0.729,
+      "yPct": 0.277,
+      "wPct": 0.428,
+      "hPct": 0.215,
+      "rotateDeg": 0,
+      "mirror": true,
+      "cornerRadius": 0
+    },
+    {
+      "id": 2,
+      "captureIndex": 2,
+      "xPct": 0.27,
+      "yPct": 0.51,
+      "wPct": 0.428,
+      "hPct": 0.215,
+      "rotateDeg": 0,
+      "mirror": true,
+      "cornerRadius": 0
+    },
+    {
+      "id": 3,
+      "captureIndex": 3,
+      "xPct": 0.728,
+      "yPct": 0.51,
+      "wPct": 0.428,
+      "hPct": 0.215,
+      "rotateDeg": 0,
+      "mirror": true,
+      "cornerRadius": 0
+    },
+    {
+      "id": 4,
+      "captureIndex": 4,
+      "xPct": 0.27,
+      "yPct": 0.742,
+      "wPct": 0.428,
+      "hPct": 0.215,
+      "rotateDeg": 0,
+      "mirror": true,
+      "cornerRadius": 0
+    },
+    {
+      "id": 5,
+      "captureIndex": 5,
+      "xPct": 0.727,
+      "yPct": 0.742,
+      "wPct": 0.428,
+      "hPct": 0.215,
+      "rotateDeg": 0,
+      "mirror": true,
+      "cornerRadius": 0
+    }
+  ]
+}

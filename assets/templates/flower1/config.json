@@ -1,0 +1,46 @@
+{
+  "id": "flower1",
+  "canvas": {
+    "width": 591,
+    "height": 1772
+  },
+  "assets": {
+    "background": "bg.png",
+    "overlay": "overlay.png"
+  },
+  "photoSlots": [
+    {
+      "id": 0,
+      "captureIndex": 0,
+      "xPct": 0.502,
+      "yPct": 0.16,
+      "wPct": 0.616,
+      "hPct": 0.201,
+      "rotateDeg": 0,
+      "mirror": true,
+      "cornerRadius": 23
+    },
+    {
+      "id": 1,
+      "captureIndex": 1,
+      "xPct": 0.496,
+      "yPct": 0.465,
+      "wPct": 0.62,
+      "hPct": 0.206,
+      "rotateDeg": 0,
+      "mirror": true,
+      "cornerRadius": 23
+    },
+    {
+      "id": 2,
+      "captureIndex": 2,
+      "xPct": 0.501,
+      "yPct": 0.768,
+      "wPct": 0.616,
+      "hPct": 0.201,
+      "rotateDeg": 0,
+      "mirror": true,
+      "cornerRadius": 23
+    }
+  ]
+}

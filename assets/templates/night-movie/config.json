@@ -1,0 +1,93 @@
+{
+  "id": "night-movie",
+  "canvas": {
+    "width": 1333,
+    "height": 2000
+  },
+  "assets": {
+    "background": "bg.png",
+    "overlay": "overlay.png"
+  },
+  "modes": [
+    {
+      "name": "3 Foto (Kiri = Kanan)",
+      "icon": "🪞",
+      "description": "Ambil 3 foto, hasilnya dicerminkan ke sisi kanan",
+      "captureMap": [0, 1, 2, 0, 1, 2]
+    },
+    {
+      "name": "6 Foto (Semua Beda)",
+      "icon": "🎞️",
+      "description": "Ambil 6 foto berbeda untuk setiap slot",
+      "captureMap": [0, 1, 2, 3, 4, 5]
+    }
+  ],
+  "photoSlots": [
+    {
+      "id": 0,
+      "captureIndex": 0,
+      "xPct": 0.247,
+      "yPct": 0.3,
+      "wPct": 0.407,
+      "hPct": 0.197,
+      "rotateDeg": 0,
+      "mirror": true,
+      "cornerRadius": 22
+    },
+    {
+      "id": 1,
+      "captureIndex": 1,
+      "xPct": 0.248,
+      "yPct": 0.515,
+      "wPct": 0.406,
+      "hPct": 0.211,
+      "rotateDeg": 0,
+      "mirror": true,
+      "cornerRadius": 22
+    },
+    {
+      "id": 2,
+      "captureIndex": 2,
+      "xPct": 0.246,
+      "yPct": 0.737,
+      "wPct": 0.406,
+      "hPct": 0.211,
+      "rotateDeg": 0,
+      "mirror": true,
+      "cornerRadius": 22
+    },
+    {
+      "id": 3,
+      "captureIndex": 3,
+      "xPct": 0.752,
+      "yPct": 0.301,
+      "wPct": 0.406,
+      "hPct": 0.197,
+      "rotateDeg": 0,
+      "mirror": true,
+      "cornerRadius": 22
+    },
+    {
+      "id": 4,
+      "captureIndex": 4,
+      "xPct": 0.752,
+      "yPct": 0.515,
+      "wPct": 0.406,
+      "hPct": 0.212,
+      "rotateDeg": 0,
+      "mirror": true,
+      "cornerRadius": 22
+    },
+    {
+      "id": 5,
+      "captureIndex": 5,
+      "xPct": 0.751,
+      "yPct": 0.737,
+      "wPct": 0.407,
+      "hPct": 0.212,
+      "rotateDeg": 0,
+      "mirror": true,
+      "cornerRadius": 22
+    }
+  ]
+}

@@ -1,0 +1,2239 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Photobooth Calibrator Pro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0f1117;
+        --bg2: #151720;
+        --panel: #1a1d28;
+        --panel2: #202431;
+        --panel3: #272c3a;
+        --line: #2d3345;
+        --line2: #3a4158;
+        --text: #e8eaef;
+        --text2: #c0c5d0;
+        --muted: #6b7385;
+        --accent: #ff8a3d;
+        --accent-dim: rgba(255, 138, 61, 0.15);
+        --accent2: #4dc9b0;
+        --accent2-dim: rgba(77, 201, 176, 0.12);
+        --danger: #f44;
+        --blue: #5b9bf5;
+        --purple: #a78bfa;
+        --mono: "JetBrains Mono", "SFMono-Regular", monospace;
+        --sans: "Inter", -apple-system, sans-serif;
+        --radius: 8px;
+        --radius-sm: 5px;
+        --shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+        --transition: 150ms ease;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+        user-select: none;
+      }
+
+      /* ── LEFT: Canvas Stage ── */
+      .stage {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        position: relative;
+        background: var(--bg2);
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
+        flex-shrink: 0;
+        z-index: 10;
+      }
+      .toolbar-group {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        background: var(--panel2);
+        border-radius: var(--radius-sm);
+        padding: 2px;
+      }
+      .toolbar-sep {
+        width: 1px;
+        height: 22px;
+        background: var(--line);
+        margin: 0 6px;
+      }
+      .tb {
+        background: none;
+        border: none;
+        color: var(--muted);
+        font-size: 15px;
+        width: 30px;
+        height: 28px;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: var(--transition);
+        font-family: var(--sans);
+      }
+      .tb:hover {
+        background: var(--panel3);
+        color: var(--text);
+      }
+      .tb.active {
+        background: var(--accent2-dim);
+        color: var(--accent2);
+      }
+      .tb[disabled] {
+        opacity: 0.3;
+        pointer-events: none;
+      }
+      .zoom-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted);
+        min-width: 48px;
+        text-align: center;
+        cursor: pointer;
+      }
+      .zoom-label:hover {
+        color: var(--text);
+      }
+
+      .canvas-wrap {
+        flex: 1;
+        overflow: hidden;
+        position: relative;
+        cursor: default;
+      }
+      .canvas-wrap.panning {
+        cursor: grab;
+      }
+      .canvas-wrap.panning:active {
+        cursor: grabbing;
+      }
+      .canvas-wrap.moving {
+        cursor: move;
+      }
+      .canvas-wrap.resizing-nw,
+      .canvas-wrap.resizing-se {
+        cursor: nwse-resize;
+      }
+      .canvas-wrap.resizing-ne,
+      .canvas-wrap.resizing-sw {
+        cursor: nesw-resize;
+      }
+      .canvas-wrap.rotating {
+        cursor: crosshair;
+      }
+
+      canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        transform-origin: 0 0;
+        image-rendering: auto;
+      }
+
+      .status-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 14px;
+        background: var(--panel);
+        border-top: 1px solid var(--line);
+        font-size: 10px;
+        color: var(--muted);
+        flex-shrink: 0;
+        font-family: var(--mono);
+      }
+      .status-bar span {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      /* ── RIGHT: Panel ── */
+      .panel-col {
+        width: 380px;
+        min-width: 320px;
+        max-width: 500px;
+        background: var(--panel);
+        border-left: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        flex-shrink: 0;
+      }
+      .panel-resize-handle {
+        position: absolute;
+        left: -3px;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        cursor: col-resize;
+        z-index: 20;
+      }
+      .panel-resize-handle:hover {
+        background: var(--accent2);
+        opacity: 0.3;
+      }
+      .panel-header {
+        padding: 14px 16px 10px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+      .panel-header h1 {
+        font-size: 14px;
+        font-weight: 700;
+        flex: 1;
+      }
+      .panel-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--line);
+        flex-shrink: 0;
+      }
+      .panel-tab {
+        flex: 1;
+        padding: 9px 0;
+        text-align: center;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--muted);
+        border: none;
+        background: none;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: var(--transition);
+      }
+      .panel-tab:hover {
+        color: var(--text2);
+      }
+      .panel-tab.active {
+        color: var(--accent2);
+        border-bottom-color: var(--accent2);
+      }
+      .panel-scroll {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 12px 14px 80px;
+        scroll-behavior: smooth;
+      }
+      .panel-scroll::-webkit-scrollbar {
+        width: 8px;
+      }
+      .panel-scroll::-webkit-scrollbar-track {
+        background: var(--panel2);
+        border-radius: 4px;
+      }
+      .panel-scroll::-webkit-scrollbar-thumb {
+        background: var(--line2);
+        border-radius: 4px;
+        border: 1px solid var(--panel2);
+      }
+      .panel-scroll::-webkit-scrollbar-thumb:hover {
+        background: var(--muted);
+      }
+
+      /* Section headers */
+      .section-head {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--muted);
+        margin: 16px 0 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .section-head:first-child {
+        margin-top: 4px;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      /* Globals */
+      .globals-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+      .g-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .g-field.full {
+        grid-column: 1 / -1;
+      }
+      .g-field label {
+        font-size: 10px;
+        color: var(--muted);
+        font-weight: 500;
+      }
+      .g-field input[type="number"],
+      .g-field input[type="text"],
+      .g-field select {
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        color: var(--text);
+        border-radius: var(--radius-sm);
+        padding: 6px 8px;
+        font-size: 12px;
+        font-family: var(--mono);
+        width: 100%;
+        outline: none;
+        transition: border var(--transition);
+      }
+      .g-field input:focus,
+      .g-field select:focus {
+        border-color: var(--accent2);
+      }
+      .g-field .file-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--panel2);
+        border: 1px dashed var(--line2);
+        border-radius: var(--radius-sm);
+        padding: 8px 10px;
+        color: var(--muted);
+        font-size: 11px;
+        cursor: pointer;
+        transition: var(--transition);
+      }
+      .g-field .file-btn:hover {
+        border-color: var(--accent2);
+        color: var(--text2);
+        background: var(--accent2-dim);
+      }
+      .g-field .file-btn.loaded {
+        border-color: var(--accent2);
+        color: var(--accent2);
+        border-style: solid;
+      }
+      .g-field input[type="file"] {
+        display: none;
+      }
+
+      /* Range row */
+      .range-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+        padding: 5px 0;
+      }
+      .range-row label {
+        font-size: 10px;
+        color: var(--muted);
+        width: 50px;
+        flex-shrink: 0;
+        font-weight: 500;
+      }
+      .range-row input[type="range"] {
+        flex: 1;
+        height: 4px;
+        -webkit-appearance: none;
+        appearance: none;
+        background: var(--line);
+        border-radius: 2px;
+        outline: none;
+        cursor: pointer;
+      }
+      .range-row input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--accent2);
+        border: 2px solid var(--bg);
+        box-shadow: 0 0 4px rgba(77, 201, 176, 0.4);
+        cursor: pointer;
+        transition: transform 100ms;
+      }
+      .range-row input[type="range"]::-webkit-slider-thumb:hover {
+        transform: scale(1.2);
+      }
+      .range-row input[type="number"] {
+        width: 56px;
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        color: var(--text);
+        border-radius: var(--radius-sm);
+        padding: 3px 5px;
+        font-size: 11px;
+        font-family: var(--mono);
+        text-align: right;
+        outline: none;
+      }
+      .range-row input[type="number"]:focus {
+        border-color: var(--accent2);
+      }
+
+      /* Photo slot cards */
+      .slot-card {
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        margin-bottom: 8px;
+        overflow: hidden;
+        transition: border var(--transition);
+      }
+      .slot-card.selected {
+        border-color: var(--accent2);
+        box-shadow:
+          0 0 0 1px var(--accent2),
+          inset 0 0 0 1px var(--accent2-dim);
+      }
+      .slot-card-head {
+        display: flex;
+        align-items: center;
+        padding: 8px 12px;
+        gap: 8px;
+        cursor: pointer;
+        transition: background var(--transition);
+      }
+      .slot-card-head:hover {
+        background: var(--panel3);
+      }
+      .slot-color {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        flex-shrink: 0;
+      }
+      .slot-card-head .slot-name {
+        font-size: 12px;
+        font-weight: 600;
+        flex: 1;
+      }
+      .slot-card-head .slot-coords {
+        font-size: 10px;
+        font-family: var(--mono);
+        color: var(--muted);
+      }
+      .slot-chevron {
+        font-size: 10px;
+        color: var(--muted);
+        transition: transform var(--transition);
+      }
+      .slot-card.collapsed .slot-chevron {
+        transform: rotate(-90deg);
+      }
+      .slot-card-body {
+        padding: 4px 12px 10px;
+        border-top: 1px solid var(--line);
+      }
+      .slot-card.collapsed .slot-card-body {
+        display: none;
+      }
+      .mirror-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 10px;
+        color: var(--muted);
+        padding: 4px 0;
+        cursor: pointer;
+      }
+      .mirror-label input {
+        accent-color: var(--accent2);
+        cursor: pointer;
+      }
+      .slot-actions {
+        display: flex;
+        gap: 4px;
+        padding: 6px 0 0;
+      }
+      .slot-btn {
+        font-size: 10px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        border: 1px solid var(--line);
+        background: none;
+        color: var(--muted);
+        cursor: pointer;
+        font-weight: 500;
+        transition: var(--transition);
+      }
+      .slot-btn:hover {
+        border-color: var(--text);
+        color: var(--text);
+        background: var(--panel3);
+      }
+      .slot-btn.del:hover {
+        border-color: var(--danger);
+        color: var(--danger);
+      }
+
+      /* Code output */
+      .code-wrap {
+        position: relative;
+      }
+      .output-box {
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 14px;
+        font-family: var(--mono);
+        font-size: 11px;
+        line-height: 1.6;
+        color: #a8d8a0;
+        white-space: pre;
+        overflow-x: auto;
+        max-height: 300px;
+      }
+      .copy-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: var(--panel3);
+        border: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 10px;
+        padding: 4px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: var(--sans);
+        font-weight: 600;
+        transition: var(--transition);
+      }
+      .copy-btn:hover {
+        color: var(--text);
+        border-color: var(--accent2);
+      }
+      .copy-btn.copied {
+        color: var(--accent2);
+        border-color: var(--accent2);
+      }
+
+      /* Toast */
+      .toast {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%) translateY(60px);
+        background: var(--accent2);
+        color: #08201a;
+        padding: 8px 20px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        opacity: 0;
+        transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 999;
+        pointer-events: none;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+
+      /* Shortcut help */
+      .shortcuts-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(8px);
+        z-index: 100;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .shortcuts-overlay.show {
+        display: flex;
+      }
+      .shortcuts-box {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 24px 30px;
+        max-width: 420px;
+        width: 90%;
+        box-shadow: var(--shadow);
+      }
+      .shortcuts-box h3 {
+        font-size: 14px;
+        margin-bottom: 14px;
+        color: var(--accent2);
+      }
+      .sc-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 5px 0;
+        font-size: 12px;
+      }
+      .sc-row kbd {
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 2px 8px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--accent);
+      }
+      .sc-row span {
+        color: var(--text2);
+      }
+
+      /* Add slot button */
+      .add-slot-btn {
+        width: 100%;
+        padding: 10px;
+        border: 1px dashed var(--line2);
+        border-radius: var(--radius);
+        background: none;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        margin-bottom: 12px;
+      }
+      .add-slot-btn:hover {
+        border-color: var(--accent2);
+        color: var(--accent2);
+        background: var(--accent2-dim);
+      }
+
+      /* Overlay range */
+      .overlay-range {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .overlay-range input[type="range"] {
+        flex: 1;
+        height: 4px;
+        -webkit-appearance: none;
+        appearance: none;
+        background: var(--line);
+        border-radius: 2px;
+        outline: none;
+        cursor: pointer;
+      }
+      .overlay-range input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--accent);
+        border: 2px solid var(--bg);
+        cursor: pointer;
+      }
+      .overlay-range .ov-val {
+        font-size: 11px;
+        font-family: var(--mono);
+        color: var(--muted);
+        min-width: 32px;
+        text-align: right;
+      }
+
+      /* Minimap */
+      .minimap {
+        position: absolute;
+        bottom: 36px;
+        right: 12px;
+        background: rgba(26, 29, 40, 0.85);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
+        z-index: 5;
+        box-shadow: var(--shadow);
+        cursor: pointer;
+      }
+      .minimap canvas {
+        position: static;
+        display: block;
+        transform: none !important;
+      }
+      .minimap-viewport {
+        position: absolute;
+        border: 1.5px solid var(--accent2);
+        background: rgba(77, 201, 176, 0.08);
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Canvas Stage -->
+    <div class="stage">
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <button
+            class="tb"
+            id="tbSelect"
+            title="Select (V)"
+            data-mode="select"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <path d="M4 4l7.07 17 2.51-7.39L21 11.1z" />
+            </svg>
+          </button>
+          <button class="tb" id="tbPan" title="Pan (H)" data-mode="pan">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <path
+                d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"
+              />
+            </svg>
+          </button>
+        </div>
+        <div class="toolbar-sep"></div>
+        <div class="toolbar-group">
+          <button class="tb" id="tbZoomOut" title="Zoom Out (-)">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.35-4.35M8 11h6" />
+            </svg>
+          </button>
+          <span class="zoom-label" id="zoomLabel" title="Click to reset zoom"
+            >100%</span
+          >
+          <button class="tb" id="tbZoomIn" title="Zoom In (+)">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.35-4.35M11 8v6M8 11h6" />
+            </svg>
+          </button>
+        </div>
+        <button class="tb" id="tbFit" title="Fit to View (0)">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <path
+              d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"
+            />
+          </svg>
+        </button>
+        <div class="toolbar-sep"></div>
+        <button class="tb" id="tbUndo" title="Undo (Ctrl+Z)" disabled>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <polyline points="1 4 1 10 7 10" />
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+          </svg>
+        </button>
+        <button class="tb" id="tbRedo" title="Redo (Ctrl+Y)" disabled>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <polyline points="23 4 23 10 17 10" />
+            <path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10" />
+          </svg>
+        </button>
+        <div class="toolbar-sep"></div>
+        <button class="tb" id="tbGrid" title="Toggle Grid (G)">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
+          </svg>
+        </button>
+        <button class="tb" id="tbHelp" title="Shortcuts (?)">?</button>
+        <div style="flex: 1"></div>
+        <span style="font-size: 11px; color: var(--muted); font-weight: 500"
+          >🎛️ Calibrator Pro</span
+        >
+      </div>
+
+      <div class="canvas-wrap" id="canvasWrap">
+        <canvas id="mainCanvas" width="800" height="1200"></canvas>
+        <div class="minimap" id="minimap" style="width: 140px; height: auto">
+          <canvas id="minimapCanvas" width="140" height="210"></canvas>
+          <div class="minimap-viewport" id="minimapVp"></div>
+        </div>
+      </div>
+
+      <div class="status-bar">
+        <span>
+          <span id="statusCoords">X: 0 Y: 0</span>
+          <span id="statusCanvas">800 × 1200</span>
+        </span>
+        <span>
+          <span id="statusMode">SELECT</span>
+          <span id="statusHint"
+            >Scroll: zoom · Space+drag: pan · Click slot: select</span
+          >
+        </span>
+      </div>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="panel-col" id="panelCol" style="position: relative">
+      <div class="panel-resize-handle" id="panelResize"></div>
+      <div class="panel-header">
+        <h1>Properties</h1>
+      </div>
+      <div class="panel-tabs">
+        <button class="panel-tab active" data-tab="slots">Slots</button>
+        <button class="panel-tab" data-tab="settings">Settings</button>
+        <button class="panel-tab" data-tab="code">Code</button>
+      </div>
+
+      <div class="panel-scroll" id="panelScroll">
+        <!-- TAB: Slots -->
+        <div class="tab-content" id="tabSlots">
+          <div id="slotCards"></div>
+          <button class="add-slot-btn" id="addSlotBtn">+ Add Slot</button>
+        </div>
+
+        <!-- TAB: Settings -->
+        <div class="tab-content" id="tabSettings" style="display: none">
+          <div class="section-head">
+            <div class="dot" style="background: var(--accent)"></div>
+            Info Template & Manifest
+          </div>
+          <div class="globals-grid">
+            <div class="g-field full">
+              <label>Nama Template (Ketik di sini!)</label>
+              <input type="text" id="templateName" value="Template Baru" />
+            </div>
+            <div class="g-field full">
+              <label>Kategori</label>
+              <input type="text" id="templateCategory" value="classic" />
+            </div>
+            <div class="g-field full">
+              <label>Template ID (Otomatis jadi nama folder)</label>
+              <input
+                type="text"
+                id="templateId"
+                value="template-baru"
+                readonly
+                style="opacity: 0.6; cursor: not-allowed"
+              />
+            </div>
+          </div>
+
+          <div class="section-head">
+            <div class="dot" style="background: var(--accent2)"></div>
+            Ukuran Canvas
+          </div>
+          <div class="globals-grid">
+            <div class="g-field">
+              <label>Width (px)</label>
+              <input
+                type="number"
+                id="canvasW"
+                value="800"
+                min="100"
+                max="6000"
+              />
+            </div>
+            <div class="g-field">
+              <label>Height (px)</label>
+              <input
+                type="number"
+                id="canvasH"
+                value="1200"
+                min="100"
+                max="6000"
+              />
+            </div>
+          </div>
+
+          <div class="section-head">
+            <div class="dot" style="background: var(--blue)"></div>
+            Background
+          </div>
+          <div class="globals-grid">
+            <div class="g-field full">
+              <label>Background Image</label>
+              <label class="file-btn" id="bgLabel">
+                📁 Upload bg.png
+                <input type="file" id="bgUpload" accept="image/*" />
+              </label>
+            </div>
+          </div>
+
+          <div class="section-head">
+            <div class="dot" style="background: var(--purple)"></div>
+            Overlay
+          </div>
+          <div class="globals-grid">
+            <div class="g-field full">
+              <label>Overlay Image</label>
+              <label class="file-btn" id="overlayLabel">
+                📁 Upload overlay.png
+                <input type="file" id="overlayUpload" accept="image/*" />
+              </label>
+            </div>
+            <div class="g-field full">
+              <label>Overlay Opacity</label>
+              <div class="overlay-range">
+                <input
+                  type="range"
+                  id="overlayOpacity"
+                  min="0"
+                  max="100"
+                  value="100"
+                />
+                <span class="ov-val" id="ovVal">100%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: Code -->
+        <div class="tab-content" id="tabCode" style="display: none">
+          <!-- CONFIG JSON -->
+          <div class="section-head">
+            <div class="dot" style="background: var(--accent2)"></div>
+            1. config.json (Simpan di folder template)
+          </div>
+          <div class="code-wrap">
+            <div class="output-box" id="outputCode"></div>
+            <div
+              style="
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                display: flex;
+                gap: 8px;
+              "
+            >
+              <button
+                class="copy-btn"
+                id="downloadBtn"
+                style="background: var(--accent2); color: #000; border: none"
+              >
+                Download JSON
+              </button>
+            </div>
+          </div>
+
+          <!-- MANIFEST ENTRY -->
+          <div class="section-head">
+            <div class="dot" style="background: var(--purple)"></div>
+            2. Snippet manifest.json (Paste ke file manifest utama)
+          </div>
+          <div class="code-wrap">
+            <div
+              class="output-box"
+              id="outputManifest"
+              style="color: #a78bfa"
+            ></div>
+            <div
+              style="
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                display: flex;
+                gap: 8px;
+              "
+            >
+              <button class="copy-btn" id="copyManifestBtn">
+                Copy Snippet
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Shortcuts overlay -->
+    <div class="shortcuts-overlay" id="shortcutsOverlay">
+      <div class="shortcuts-box">
+        <h3>⌨️ Keyboard Shortcuts</h3>
+        <div class="sc-row"><span>Select mode</span><kbd>V</kbd></div>
+        <div class="sc-row"><span>Pan mode</span><kbd>H</kbd></div>
+        <div class="sc-row"><span>Zoom in / out</span><kbd>+ / -</kbd></div>
+        <div class="sc-row"><span>Fit to view</span><kbd>0</kbd></div>
+        <div class="sc-row"><span>Pan (hold)</span><kbd>Space + Drag</kbd></div>
+        <div class="sc-row"><span>Zoom to cursor</span><kbd>Scroll</kbd></div>
+        <div class="sc-row"><span>Toggle grid</span><kbd>G</kbd></div>
+        <div class="sc-row">
+          <span>Undo / Redo</span><kbd>Ctrl+Z / Ctrl+Y</kbd>
+        </div>
+        <div class="sc-row">
+          <span>Nudge selected</span><kbd>Arrow keys</kbd>
+        </div>
+        <div class="sc-row">
+          <span>Fine nudge</span><kbd>Shift + Arrow</kbd>
+        </div>
+        <div class="sc-row"><span>Delete selected</span><kbd>Delete</kbd></div>
+        <div class="sc-row">
+          <span>Duplicate selected</span><kbd>Ctrl+D</kbd>
+        </div>
+        <div class="sc-row"><span>Select all</span><kbd>Ctrl+A</kbd></div>
+        <div class="sc-row"><span>Deselect</span><kbd>Escape</kbd></div>
+        <div class="sc-row"><span>Close this</span><kbd>?</kbd></div>
+      </div>
+    </div>
+
+    <script>
+      // ═══════════════════════════════════════════════════════════════
+      //  Photobooth Calibrator Pro - Full Script
+      // ═══════════════════════════════════════════════════════════════
+
+      const $ = (s) => document.getElementById(s);
+      const $$ = (s) => document.querySelectorAll(s);
+
+      // ── State ──
+      let frames = [];
+      let selectedId = -1;
+      let bgImage = null,
+        overlayImage = null;
+      let zoom = 1,
+        panX = 0,
+        panY = 0;
+      let mode = "select"; // 'select' | 'pan'
+      let showGrid = false;
+      let canvasW = 800,
+        canvasH = 1200;
+
+      const COLORS = [
+        "#e07a5f",
+        "#3d8fb0",
+        "#8a6fd1",
+        "#4dc9b0",
+        "#f4a261",
+        "#e76f51",
+        "#2a9d8f",
+        "#e9c46a",
+        "#f472b6",
+        "#60a5fa",
+      ];
+
+      const canvas = $("mainCanvas");
+      const ctx = canvas.getContext("2d");
+      const wrap = $("canvasWrap");
+      const minimapCanvas = $("minimapCanvas");
+      const minimapCtx = minimapCanvas.getContext("2d");
+
+      // ── Undo/Redo ──
+      const undoStack = [];
+      const redoStack = [];
+      function pushUndo() {
+        undoStack.push(JSON.parse(JSON.stringify(frames)));
+        if (undoStack.length > 60) undoStack.shift();
+        redoStack.length = 0;
+        updateUndoButtons();
+      }
+      function undo() {
+        if (!undoStack.length) return;
+        redoStack.push(JSON.parse(JSON.stringify(frames)));
+        frames = undoStack.pop();
+        updateUndoButtons();
+        buildUI();
+        render();
+      }
+      function redo() {
+        if (!redoStack.length) return;
+        undoStack.push(JSON.parse(JSON.stringify(frames)));
+        frames = redoStack.pop();
+        updateUndoButtons();
+        buildUI();
+        render();
+      }
+      function updateUndoButtons() {
+        $("tbUndo").disabled = !undoStack.length;
+        $("tbRedo").disabled = !redoStack.length;
+      }
+
+      // ── Toast ──
+      let toastTimer;
+      function toast(msg) {
+        const el = $("toast");
+        el.textContent = msg;
+        el.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove("show"), 1800);
+      }
+
+      // ── Tabs ──
+      $$(".panel-tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          $$(".panel-tab").forEach((t) => t.classList.remove("active"));
+          tab.classList.add("active");
+          $$(".tab-content").forEach((c) => (c.style.display = "none"));
+          const target = tab.dataset.tab;
+          if (target === "slots") $("tabSlots").style.display = "";
+          else if (target === "settings") $("tabSettings").style.display = "";
+          else if (target === "code") {
+            $("tabCode").style.display = "";
+            updateOutput();
+          }
+        });
+      });
+
+      // ── Image loading ──
+      function loadImageFile(inputEl, labelEl, onLoaded) {
+        inputEl.addEventListener("change", (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const img = new Image();
+          img.onload = () => {
+            onLoaded(img, file.name);
+            render();
+          };
+          img.src = URL.createObjectURL(file);
+        });
+      }
+      loadImageFile($("bgUpload"), $("bgLabel"), (img, name) => {
+        bgImage = img;
+        canvasW = img.naturalWidth;
+        canvasH = img.naturalHeight;
+        canvas.width = canvasW;
+        canvas.height = canvasH;
+        $("canvasW").value = canvasW;
+        $("canvasH").value = canvasH;
+        $("bgLabel").classList.add("loaded");
+        $("bgLabel").innerHTML =
+          `✅ ${name}<input type="file" id="bgUpload" accept="image/*">`;
+        loadImageFile($("bgUpload"), $("bgLabel"), arguments.callee);
+        fitToView();
+      });
+      loadImageFile($("overlayUpload"), $("overlayLabel"), (img, name) => {
+        overlayImage = img;
+        $("overlayLabel").classList.add("loaded");
+        $("overlayLabel").innerHTML =
+          `✅ ${name}<input type="file" id="overlayUpload" accept="image/*">`;
+        loadImageFile($("overlayUpload"), $("overlayLabel"), arguments.callee);
+      });
+
+      $("overlayOpacity").addEventListener("input", (e) => {
+        $("ovVal").textContent = e.target.value + "%";
+        render();
+      });
+
+      // Canvas size
+      $("canvasW").addEventListener("change", (e) => {
+        canvasW = parseInt(e.target.value) || 800;
+        canvas.width = canvasW;
+        render();
+      });
+      $("canvasH").addEventListener("change", (e) => {
+        canvasH = parseInt(e.target.value) || 1200;
+        canvas.height = canvasH;
+        render();
+      });
+
+      // ── Init frames ──
+      function initFrames(count) {
+        frames = [];
+        for (let i = 0; i < count; i++) {
+          frames.push({
+            id: i,
+            x: 50,
+            y: 15 + i * 25,
+            w: 60,
+            h: 20,
+            rot: 0,
+            radius: 0, // <-- TAMBAHIN INI
+            mirror: true,
+          });
+        }
+        pushUndo();
+        selectedId = 0;
+        buildUI();
+        render();
+      }
+
+      // ── Add / Remove ──
+      $("addSlotBtn").addEventListener("click", () => {
+        pushUndo();
+        const id = frames.length ? Math.max(...frames.map((f) => f.id)) + 1 : 0;
+        frames.push({
+          id,
+          x: 50,
+          y: 50,
+          w: 40,
+          h: 25,
+          rot: 0,
+          mirror: true,
+          radius: 0,
+        });
+        selectedId = id;
+        buildUI();
+        render();
+        toast("Slot added");
+      });
+
+      function removeSlot(id) {
+        pushUndo();
+        frames = frames.filter((f) => f.id !== id);
+        if (selectedId === id) selectedId = frames.length ? frames[0].id : -1;
+        buildUI();
+        render();
+        toast("Slot removed");
+      }
+
+      function duplicateSlot(id) {
+        const src = frames.find((f) => f.id === id);
+        if (!src) return;
+        pushUndo();
+        const newId = frames.length
+          ? Math.max(...frames.map((f) => f.id)) + 1
+          : 0;
+        const dup = { ...src, id: newId, x: src.x + 3, y: src.y + 3 };
+        frames.push(dup);
+        selectedId = newId;
+        buildUI();
+        render();
+        toast("Slot duplicated");
+      }
+
+      // ── Build sidebar UI ──
+      function buildUI() {
+        const container = $("slotCards");
+        container.innerHTML = "";
+        const sliderDefs = [
+          { key: "x", label: "X (%)", min: 0, max: 100, step: 0.1 },
+          { key: "y", label: "Y (%)", min: 0, max: 100, step: 0.1 },
+          { key: "w", label: "W (%)", min: 1, max: 100, step: 0.1 },
+          { key: "h", label: "H (%)", min: 1, max: 100, step: 0.1 },
+          { key: "rot", label: "Rot (°)", min: -180, max: 180, step: 0.5 },
+          { key: "radius", label: "Rad (px)", min: 0, max: 100, step: 1 },
+        ];
+
+        frames.forEach((frame, idx) => {
+          const card = document.createElement("div");
+          card.className =
+            "slot-card" + (frame.id === selectedId ? " selected" : "");
+          card.dataset.id = frame.id;
+
+          const color = COLORS[idx % COLORS.length];
+
+          let headHTML = `<div class="slot-card-head" data-select="${frame.id}">
+        <div class="slot-color" style="background:${color}"></div>
+        <span class="slot-name">Foto ${idx + 1}</span>
+        <span class="slot-coords">${frame.x.toFixed(1)}, ${frame.y.toFixed(1)}</span>
+        <span class="slot-chevron">▼</span>
+      </div>`;
+
+          let bodyHTML = '<div class="slot-card-body">';
+          sliderDefs.forEach((def) => {
+            bodyHTML += `<div class="range-row">
+          <label>${def.label}</label>
+          <input type="range" min="${def.min}" max="${def.max}" step="${def.step}" value="${frame[def.key]}" data-fid="${frame.id}" data-key="${def.key}" class="rng">
+          <input type="number" min="${def.min}" max="${def.max}" step="${def.step}" value="${frame[def.key]}" data-fid="${frame.id}" data-key="${def.key}" class="num">
+        </div>`;
+          });
+          bodyHTML += `<label class="mirror-label"><input type="checkbox" ${frame.mirror ? "checked" : ""} data-mirror="${frame.id}"> Mirror horizontal</label>`;
+          bodyHTML += `<div class="slot-actions">
+        <button class="slot-btn" data-dup="${frame.id}">Duplicate</button>
+        <button class="slot-btn del" data-del="${frame.id}">Delete</button>
+      </div>`;
+          bodyHTML += "</div>";
+
+          card.innerHTML = headHTML + bodyHTML;
+          container.appendChild(card);
+        });
+
+        // Event delegation
+        container.querySelectorAll("[data-select]").forEach((el) => {
+          el.addEventListener("click", (e) => {
+            const id = +e.currentTarget.dataset.select;
+            if (selectedId === id) {
+              // toggle collapse
+              e.currentTarget.parentElement.classList.toggle("collapsed");
+            } else {
+              selectedId = id;
+              highlightCard();
+              render();
+            }
+          });
+        });
+
+        container.querySelectorAll(".rng, .num").forEach((input) => {
+          let pushed = false;
+          input.addEventListener("mousedown", () => {
+            pushed = false;
+          });
+          input.addEventListener("input", (e) => {
+            if (!pushed) {
+              pushUndo();
+              pushed = true;
+            }
+            const fid = +e.target.dataset.fid;
+            const key = e.target.dataset.key;
+            const val = parseFloat(e.target.value);
+            const frame = frames.find((f) => f.id === fid);
+            if (!frame) return;
+            frame[key] = val;
+            // Sync sibling
+            container
+              .querySelectorAll(`[data-fid="${fid}"][data-key="${key}"]`)
+              .forEach((el) => (el.value = val));
+            // Update coords display
+            const card = container.querySelector(
+              `.slot-card[data-id="${fid}"]`,
+            );
+            if (card)
+              card.querySelector(".slot-coords").textContent =
+                `${frame.x.toFixed(1)}, ${frame.y.toFixed(1)}`;
+            render();
+          });
+        });
+
+        container.querySelectorAll("[data-mirror]").forEach((cb) => {
+          cb.addEventListener("change", (e) => {
+            pushUndo();
+            const f = frames.find((f) => f.id === +e.target.dataset.mirror);
+            if (f) f.mirror = e.target.checked;
+            render();
+          });
+        });
+
+        container.querySelectorAll("[data-dup]").forEach((btn) => {
+          btn.addEventListener("click", (e) =>
+            duplicateSlot(+e.target.dataset.dup),
+          );
+        });
+        container.querySelectorAll("[data-del]").forEach((btn) => {
+          btn.addEventListener("click", (e) =>
+            removeSlot(+e.target.dataset.del),
+          );
+        });
+
+        updateOutput();
+      }
+
+      function highlightCard() {
+        $$(".slot-card").forEach((c) => {
+          c.classList.toggle("selected", +c.dataset.id === selectedId);
+        });
+      }
+
+      // ── Sync sliders from external update ──
+      function syncSliders(frame) {
+        const container = $("slotCards");
+        ["x", "y", "w", "h", "rot", "radius"].forEach((key) => {
+          container
+            .querySelectorAll(`[data-fid="${frame.id}"][data-key="${key}"]`)
+            .forEach((el) => {
+              el.value = frame[key];
+            });
+        });
+        const card = container.querySelector(
+          `.slot-card[data-id="${frame.id}"]`,
+        );
+        if (card)
+          card.querySelector(".slot-coords").textContent =
+            `${frame.x.toFixed(1)}, ${frame.y.toFixed(1)}`;
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      //  RENDERING
+      // ═══════════════════════════════════════════════════════════════
+      function render() {
+        const w = canvas.width,
+          h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        // Background
+        if (bgImage) {
+          ctx.drawImage(bgImage, 0, 0, w, h);
+        } else {
+          ctx.fillStyle = "#23272f";
+          ctx.fillRect(0, 0, w, h);
+          // Checker
+          const sz = 20;
+          ctx.fillStyle = "#2a2e38";
+          for (let gy = 0; gy < h; gy += sz * 2) {
+            for (let gx = 0; gx < w; gx += sz * 2) {
+              ctx.fillRect(gx, gy, sz, sz);
+              ctx.fillRect(gx + sz, gy + sz, sz, sz);
+            }
+          }
+        }
+
+        // Grid
+        if (showGrid) {
+          ctx.save();
+          ctx.strokeStyle = "rgba(255,255,255,0.07)";
+          ctx.lineWidth = 1;
+          const step = Math.max(w, h) / 10;
+          for (let i = step; i < w; i += step) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, h);
+            ctx.stroke();
+          }
+          for (let i = step; i < h; i += step) {
+            ctx.beginPath();
+            ctx.moveTo(0, i);
+            ctx.lineTo(w, i);
+            ctx.stroke();
+          }
+          // Center cross
+          ctx.strokeStyle = "rgba(77,201,176,0.2)";
+          ctx.setLineDash([6, 4]);
+          ctx.beginPath();
+          ctx.moveTo(w / 2, 0);
+          ctx.lineTo(w / 2, h);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, h / 2);
+          ctx.lineTo(w, h / 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+
+        // Photo slots
+        frames.forEach((f, i) => {
+          const cX = w * (f.x / 100);
+          const cY = h * (f.y / 100);
+          const pW = w * (f.w / 100);
+          const pH = h * (f.h / 100);
+          const color = COLORS[i % COLORS.length];
+
+          ctx.save();
+          ctx.translate(cX, cY);
+          ctx.rotate((f.rot * Math.PI) / 180);
+
+          // Fill & Border pakai Rounded Corners
+          ctx.beginPath();
+          if (f.radius > 0) {
+            ctx.roundRect(-pW / 2, -pH / 2, pW, pH, f.radius);
+          } else {
+            ctx.rect(-pW / 2, -pH / 2, pW, pH);
+          }
+
+          // Draw Fill
+          ctx.globalAlpha = 0.55;
+          ctx.fillStyle = color;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+
+          // Draw Border
+          ctx.strokeStyle = color;
+          ctx.lineWidth = f.id === selectedId ? 3 : 1.5;
+          ctx.stroke();
+
+          // Label
+          ctx.fillStyle = "#fff";
+          const fontSize = Math.max(12, Math.min(pW, pH) * 0.15);
+          ctx.font = `bold ${fontSize}px Inter, sans-serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(`FOTO ${i + 1}`, 0, 0);
+
+          // Dimensions text
+          ctx.font = `${Math.max(9, fontSize * 0.55)}px JetBrains Mono, monospace`;
+          ctx.globalAlpha = 0.6;
+          ctx.fillText(
+            `${f.w.toFixed(1)}% × ${f.h.toFixed(1)}%`,
+            0,
+            fontSize * 0.8,
+          );
+          ctx.globalAlpha = 1;
+
+          // Selection handles
+          if (f.id === selectedId) {
+            const hs = Math.max(5, 8 / zoom);
+            ctx.fillStyle = "#fff";
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            const corners = [
+              [-pW / 2, -pH / 2],
+              [pW / 2, -pH / 2],
+              [-pW / 2, pH / 2],
+              [pW / 2, pH / 2],
+            ];
+            corners.forEach(([cx, cy]) => {
+              ctx.fillRect(cx - hs / 2, cy - hs / 2, hs, hs);
+              ctx.strokeRect(cx - hs / 2, cy - hs / 2, hs, hs);
+            });
+
+            // Rotation handle
+            ctx.beginPath();
+            ctx.moveTo(0, -pH / 2);
+            ctx.lineTo(0, -pH / 2 - 25 / zoom);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(0, -pH / 2 - 25 / zoom, 5 / zoom, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+          }
+
+          ctx.restore();
+        });
+
+        // Overlay
+        if (overlayImage) {
+          ctx.globalAlpha = $("overlayOpacity").value / 100;
+          ctx.drawImage(overlayImage, 0, 0, w, h);
+          ctx.globalAlpha = 1;
+        }
+
+        // Update canvas transform
+        updateCanvasTransform();
+        renderMinimap();
+        updateOutput();
+        $("statusCanvas").textContent = `${w} × ${h}`;
+      }
+
+      function updateCanvasTransform() {
+        canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+        $("zoomLabel").textContent = Math.round(zoom * 100) + "%";
+      }
+
+      // ── Minimap ──
+      function renderMinimap() {
+        const mW = 140;
+        const ratio = canvasH / canvasW;
+        const mH = Math.round(mW * ratio);
+        minimapCanvas.width = mW;
+        minimapCanvas.height = mH;
+        $("minimap").style.height = mH + "px";
+
+        minimapCtx.clearRect(0, 0, mW, mH);
+        minimapCtx.drawImage(canvas, 0, 0, mW, mH);
+
+        // Viewport rect
+        const wrapRect = wrap.getBoundingClientRect();
+        const vpW = (wrapRect.width / zoom / canvasW) * mW;
+        const vpH = (wrapRect.height / zoom / canvasH) * mH;
+        const vpX = (-panX / zoom / canvasW) * mW;
+        const vpY = (-panY / zoom / canvasH) * mH;
+
+        const vp = $("minimapVp");
+        vp.style.left = Math.max(0, vpX) + "px";
+        vp.style.top = Math.max(0, vpY) + "px";
+        vp.style.width = Math.min(vpW, mW) + "px";
+        vp.style.height = Math.min(vpH, mH) + "px";
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      //  ZOOM & PAN
+      // ═══════════════════════════════════════════════════════════════
+      function fitToView() {
+        const wrapRect = wrap.getBoundingClientRect();
+        const pad = 40;
+        const scaleX = (wrapRect.width - pad * 2) / canvasW;
+        const scaleY = (wrapRect.height - pad * 2) / canvasH;
+        zoom = Math.min(scaleX, scaleY, 2);
+        panX = (wrapRect.width - canvasW * zoom) / 2;
+        panY = (wrapRect.height - canvasH * zoom) / 2;
+        updateCanvasTransform();
+        renderMinimap();
+      }
+
+      function zoomTo(newZoom, cx, cy) {
+        const wrapRect = wrap.getBoundingClientRect();
+        if (cx === undefined) cx = wrapRect.width / 2;
+        if (cy === undefined) cy = wrapRect.height / 2;
+        const oldZoom = zoom;
+        zoom = Math.max(0.05, Math.min(newZoom, 10));
+        panX = cx - (cx - panX) * (zoom / oldZoom);
+        panY = cy - (cy - panY) * (zoom / oldZoom);
+        updateCanvasTransform();
+        renderMinimap();
+      }
+
+      // Scroll: pan (normal) / zoom (Ctrl)
+      wrap.addEventListener(
+        "wheel",
+        (e) => {
+          e.preventDefault();
+          if (e.ctrlKey || e.metaKey) {
+            // Ctrl + Scroll = Zoom (ke arah cursor)
+            const rect = wrap.getBoundingClientRect();
+            const cx = e.clientX - rect.left;
+            const cy = e.clientY - rect.top;
+            const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+            zoomTo(zoom * factor, cx, cy);
+          } else {
+            // Scroll biasa = Pan
+            // Shift + Scroll = Pan horizontal
+            const speed = 3;
+            const dx = (e.shiftKey ? -e.deltaY : -e.deltaX) * speed;
+            const dy = (e.shiftKey ? 0 : -e.deltaY) * speed;
+            panX += dx;
+            panY += dy;
+            updateCanvasTransform();
+            renderMinimap();
+          }
+        },
+        { passive: false },
+      );
+
+      $("tbZoomIn").addEventListener("click", () => zoomTo(zoom * 1.25));
+      $("tbZoomOut").addEventListener("click", () => zoomTo(zoom / 1.25));
+      $("tbFit").addEventListener("click", fitToView);
+      $("zoomLabel").addEventListener("click", () => {
+        zoom = 1;
+        panX = 0;
+        panY = 0;
+        updateCanvasTransform();
+        renderMinimap();
+      });
+      $("tbUndo").addEventListener("click", undo);
+      $("tbRedo").addEventListener("click", redo);
+
+      // ── Mode switching ──
+      function setMode(m) {
+        mode = m;
+        $("tbSelect").classList.toggle("active", m === "select");
+        $("tbPan").classList.toggle("active", m === "pan");
+        wrap.classList.toggle("panning", m === "pan");
+        $("statusMode").textContent = m.toUpperCase();
+      }
+      $("tbSelect").addEventListener("click", () => setMode("select"));
+      $("tbPan").addEventListener("click", () => setMode("pan"));
+      setMode("select");
+
+      // Grid
+      $("tbGrid").addEventListener("click", () => {
+        showGrid = !showGrid;
+        $("tbGrid").classList.toggle("active", showGrid);
+        render();
+      });
+
+      // ── Shortcuts overlay ──
+      $("tbHelp").addEventListener("click", () => {
+        $("shortcutsOverlay").classList.toggle("show");
+      });
+      $("shortcutsOverlay").addEventListener("click", (e) => {
+        if (e.target === $("shortcutsOverlay"))
+          $("shortcutsOverlay").classList.remove("show");
+      });
+
+      // ═══════════════════════════════════════════════════════════════
+      //  CANVAS INTERACTION (drag, resize, rotate)
+      // ═══════════════════════════════════════════════════════════════
+      let isDragging = false;
+      let dragType = null; // 'move' | 'resize' | 'rotate' | 'pan'
+      let dragFrame = null;
+      let dragCorner = -1;
+      let dragStartX, dragStartY;
+      let dragOrigFrame = null;
+      let spaceDown = false;
+
+      function screenToCanvas(sx, sy) {
+        const rect = wrap.getBoundingClientRect();
+        return {
+          x: (sx - rect.left - panX) / zoom,
+          y: (sy - rect.top - panY) / zoom,
+        };
+      }
+
+      function hitTestFrame(cx, cy) {
+        // Iterate reverse (top-most first)
+        for (let i = frames.length - 1; i >= 0; i--) {
+          const f = frames[i];
+          const fcx = canvasW * (f.x / 100);
+          const fcy = canvasH * (f.y / 100);
+          const fw = canvasW * (f.w / 100);
+          const fh = canvasH * (f.h / 100);
+          // Transform point into frame's local space
+          const dx = cx - fcx;
+          const dy = cy - fcy;
+          const angle = (-f.rot * Math.PI) / 180;
+          const lx = dx * Math.cos(angle) - dy * Math.sin(angle);
+          const ly = dx * Math.sin(angle) + dy * Math.cos(angle);
+          if (Math.abs(lx) <= fw / 2 && Math.abs(ly) <= fh / 2) {
+            return f;
+          }
+        }
+        return null;
+      }
+
+      function hitTestHandle(cx, cy, frame) {
+        if (!frame || frame.id !== selectedId) return -1;
+        const fcx = canvasW * (frame.x / 100);
+        const fcy = canvasH * (frame.y / 100);
+        const fw = canvasW * (frame.w / 100);
+        const fh = canvasH * (frame.h / 100);
+
+        const dx = cx - fcx;
+        const dy = cy - fcy;
+        const angle = (-frame.rot * Math.PI) / 180;
+        const lx = dx * Math.cos(angle) - dy * Math.sin(angle);
+        const ly = dx * Math.sin(angle) + dy * Math.cos(angle);
+
+        const hs = Math.max(8, 12 / zoom);
+        const corners = [
+          [-fw / 2, -fh / 2],
+          [fw / 2, -fh / 2],
+          [-fw / 2, fh / 2],
+          [fw / 2, fh / 2],
+        ];
+        for (let i = 0; i < corners.length; i++) {
+          if (
+            Math.abs(lx - corners[i][0]) < hs &&
+            Math.abs(ly - corners[i][1]) < hs
+          )
+            return i;
+        }
+
+        // Rotation handle
+        if (
+          Math.abs(lx) < hs * 2 &&
+          Math.abs(ly - (-fh / 2 - 25 / zoom)) < hs * 2
+        )
+          return 5; // rotation
+
+        return -1;
+      }
+
+      wrap.addEventListener("mousedown", (e) => {
+        if (
+          e.button === 1 ||
+          (e.button === 0 && (mode === "pan" || spaceDown))
+        ) {
+          // Pan
+          isDragging = true;
+          dragType = "pan";
+          dragStartX = e.clientX - panX;
+          dragStartY = e.clientY - panY;
+          wrap.classList.add("panning");
+          e.preventDefault();
+          return;
+        }
+
+        if (e.button !== 0 || mode !== "select") return;
+
+        const { x: cx, y: cy } = screenToCanvas(e.clientX, e.clientY);
+
+        // Check handles on selected frame first
+        const selFrame = frames.find((f) => f.id === selectedId);
+        if (selFrame) {
+          const corner = hitTestHandle(cx, cy, selFrame);
+          if (corner === 5) {
+            // Rotation
+            isDragging = true;
+            dragType = "rotate";
+            dragFrame = selFrame;
+            dragOrigFrame = { ...selFrame };
+            const fcx = canvasW * (selFrame.x / 100);
+            const fcy = canvasH * (selFrame.y / 100);
+            dragStartX = (Math.atan2(cy - fcy, cx - fcx) * 180) / Math.PI;
+            pushUndo();
+            wrap.classList.add("rotating");
+            return;
+          }
+          if (corner >= 0) {
+            isDragging = true;
+            dragType = "resize";
+            dragFrame = selFrame;
+            dragCorner = corner;
+            dragOrigFrame = { ...selFrame };
+            dragStartX = cx;
+            dragStartY = cy;
+            pushUndo();
+            const cursors = [
+              "resizing-nw",
+              "resizing-ne",
+              "resizing-sw",
+              "resizing-se",
+            ];
+            wrap.classList.add(cursors[corner]);
+            return;
+          }
+        }
+
+        // Hit test frames
+        const hit = hitTestFrame(cx, cy);
+        if (hit) {
+          selectedId = hit.id;
+          highlightCard();
+          isDragging = true;
+          dragType = "move";
+          dragFrame = hit;
+          dragOrigFrame = { ...hit };
+          dragStartX = cx;
+          dragStartY = cy;
+          pushUndo();
+          wrap.classList.add("moving");
+          // Scroll card into view
+          const card = $("slotCards").querySelector(
+            `.slot-card[data-id="${hit.id}"]`,
+          );
+          if (card)
+            card.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          render();
+        } else {
+          selectedId = -1;
+          highlightCard();
+          render();
+        }
+      });
+
+      window.addEventListener("mousemove", (e) => {
+        if (!isDragging) {
+          // Update status coords
+          const { x, y } = screenToCanvas(e.clientX, e.clientY);
+          if (x >= 0 && y >= 0 && x <= canvasW && y <= canvasH) {
+            $("statusCoords").textContent =
+              `X: ${Math.round(x)} Y: ${Math.round(y)}`;
+          }
+          return;
+        }
+
+        if (dragType === "pan") {
+          panX = e.clientX - dragStartX;
+          panY = e.clientY - dragStartY;
+          updateCanvasTransform();
+          renderMinimap();
+          return;
+        }
+
+        const { x: cx, y: cy } = screenToCanvas(e.clientX, e.clientY);
+
+        if (dragType === "move") {
+          const dx = cx - dragStartX;
+          const dy = cy - dragStartY;
+          dragFrame.x = dragOrigFrame.x + (dx / canvasW) * 100;
+          dragFrame.y = dragOrigFrame.y + (dy / canvasH) * 100;
+          dragFrame.x = Math.round(dragFrame.x * 10) / 10;
+          dragFrame.y = Math.round(dragFrame.y * 10) / 10;
+          syncSliders(dragFrame);
+          render();
+        }
+
+        if (dragType === "resize") {
+          const f = dragFrame;
+          const o = dragOrigFrame;
+          const fcx = canvasW * (o.x / 100);
+          const fcy = canvasH * (o.y / 100);
+
+          // Transform mouse to local space
+          const angle = (-o.rot * Math.PI) / 180;
+          const dx = cx - fcx;
+          const dy = cy - fcy;
+          const lx = dx * Math.cos(angle) - dy * Math.sin(angle);
+          const ly = dx * Math.sin(angle) + dy * Math.cos(angle);
+
+          const oW = canvasW * (o.w / 100);
+          const oH = canvasH * (o.h / 100);
+
+          let newW = oW,
+            newH = oH,
+            newCx = fcx,
+            newCy = fcy;
+
+          // corner: 0=TL, 1=TR, 2=BL, 3=BR
+          if (dragCorner === 3) {
+            // BR
+            newW = Math.max(20, lx + oW / 2);
+            newH = Math.max(20, ly + oH / 2);
+          } else if (dragCorner === 0) {
+            // TL
+            newW = Math.max(20, oW / 2 - lx);
+            newH = Math.max(20, oH / 2 - ly);
+            const dw = newW - oW;
+            const dh = newH - oH;
+            newCx =
+              fcx - (dw / 2) * Math.cos(-angle) + (dh / 2) * Math.sin(-angle);
+            newCy =
+              fcx - (dw / 2) * Math.sin(-angle) - (dh / 2) * Math.cos(-angle);
+            // Simpler: keep center adjusted
+            newCx =
+              fcx -
+              ((newW - oW) / 2) * Math.cos((o.rot * Math.PI) / 180) +
+              ((newH - oH) / 2) * Math.sin((o.rot * Math.PI) / 180);
+            newCy =
+              fcy -
+              ((newW - oW) / 2) * Math.sin((o.rot * Math.PI) / 180) -
+              ((newH - oH) / 2) * Math.cos((o.rot * Math.PI) / 180);
+          } else if (dragCorner === 1) {
+            // TR
+            newW = Math.max(20, lx + oW / 2);
+            newH = Math.max(20, oH / 2 - ly);
+            newCx =
+              fcx +
+              ((newW - oW) / 2) * Math.cos((o.rot * Math.PI) / 180) +
+              ((newH - oH) / 2) * Math.sin((o.rot * Math.PI) / 180);
+            newCy =
+              fcy +
+              ((newW - oW) / 2) * Math.sin((o.rot * Math.PI) / 180) -
+              ((newH - oH) / 2) * Math.cos((o.rot * Math.PI) / 180);
+          } else if (dragCorner === 2) {
+            // BL
+            newW = Math.max(20, oW / 2 - lx);
+            newH = Math.max(20, ly + oH / 2);
+            newCx =
+              fcx -
+              ((newW - oW) / 2) * Math.cos((o.rot * Math.PI) / 180) -
+              ((newH - oH) / 2) * Math.sin((o.rot * Math.PI) / 180);
+            newCy =
+              fcy -
+              ((newW - oW) / 2) * Math.sin((o.rot * Math.PI) / 180) +
+              ((newH - oH) / 2) * Math.cos((o.rot * Math.PI) / 180);
+          }
+
+          f.w = Math.round((newW / canvasW) * 1000) / 10;
+          f.h = Math.round((newH / canvasH) * 1000) / 10;
+          if (dragCorner !== 3) {
+            f.x = Math.round((newCx / canvasW) * 1000) / 10;
+            f.y = Math.round((newCy / canvasH) * 1000) / 10;
+          }
+
+          syncSliders(f);
+          render();
+        }
+
+        if (dragType === "rotate") {
+          const fcx = canvasW * (dragFrame.x / 100);
+          const fcy = canvasH * (dragFrame.y / 100);
+          const angle = (Math.atan2(cy - fcy, cx - fcx) * 180) / Math.PI;
+          let rot = dragOrigFrame.rot + (angle - dragStartX);
+          // Snap to 0/90/180
+          if (Math.abs(rot) < 3) rot = 0;
+          else if (Math.abs(rot - 90) < 3) rot = 90;
+          else if (Math.abs(rot + 90) < 3) rot = -90;
+          else if (Math.abs(rot - 180) < 3) rot = 180;
+          else if (Math.abs(rot + 180) < 3) rot = -180;
+          dragFrame.rot = Math.round(rot * 2) / 2;
+          syncSliders(dragFrame);
+          render();
+        }
+      });
+
+      window.addEventListener("mouseup", () => {
+        isDragging = false;
+        dragType = null;
+        wrap.className = "canvas-wrap";
+        if (mode === "pan") wrap.classList.add("panning");
+      });
+
+      // ── Minimap click-to-navigate ──
+      $("minimap").addEventListener("mousedown", (e) => {
+        const rect = $("minimap").getBoundingClientRect();
+        const mW = minimapCanvas.width;
+        const mH = minimapCanvas.height;
+        const mx = ((e.clientX - rect.left) / rect.width) * mW;
+        const my = ((e.clientY - rect.top) / rect.height) * mH;
+
+        const wrapRect = wrap.getBoundingClientRect();
+        const canvasXPct = mx / mW;
+        const canvasYPct = my / mH;
+
+        panX = wrapRect.width / 2 - canvasXPct * canvasW * zoom;
+        panY = wrapRect.height / 2 - canvasYPct * canvasH * zoom;
+        updateCanvasTransform();
+        renderMinimap();
+      });
+
+      // ═══════════════════════════════════════════════════════════════
+      //  KEYBOARD SHORTCUTS
+      // ═══════════════════════════════════════════════════════════════
+      window.addEventListener("keydown", (e) => {
+        // Don't intercept when typing in inputs
+        if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")
+          return;
+
+        if (e.key === " ") {
+          spaceDown = true;
+          wrap.classList.add("panning");
+          e.preventDefault();
+        }
+        if (e.key === "v" || e.key === "V") setMode("select");
+        if (e.key === "h" || e.key === "H") setMode("pan");
+        if (e.key === "=" || e.key === "+") {
+          zoomTo(zoom * 1.25);
+          e.preventDefault();
+        }
+        if (e.key === "-") {
+          zoomTo(zoom / 1.25);
+          e.preventDefault();
+        }
+        if (e.key === "0") {
+          fitToView();
+          e.preventDefault();
+        }
+        if (e.key === "g" || e.key === "G") {
+          showGrid = !showGrid;
+          $("tbGrid").classList.toggle("active", showGrid);
+          render();
+        }
+        if (e.key === "?") {
+          $("shortcutsOverlay").classList.toggle("show");
+        }
+        if (e.key === "Escape") {
+          if ($("shortcutsOverlay").classList.contains("show")) {
+            $("shortcutsOverlay").classList.remove("show");
+          } else {
+            selectedId = -1;
+            highlightCard();
+            render();
+          }
+        }
+        if (e.key === "Delete" || e.key === "Backspace") {
+          if (selectedId >= 0) {
+            removeSlot(selectedId);
+            e.preventDefault();
+          }
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+          undo();
+          e.preventDefault();
+        }
+        if (
+          (e.ctrlKey || e.metaKey) &&
+          (e.key === "y" || (e.shiftKey && e.key === "Z"))
+        ) {
+          redo();
+          e.preventDefault();
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === "d" || e.key === "D")) {
+          if (selectedId >= 0) {
+            duplicateSlot(selectedId);
+            e.preventDefault();
+          }
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === "a" || e.key === "A")) {
+          // Select first if none selected
+          if (frames.length) {
+            selectedId = frames[0].id;
+            highlightCard();
+            render();
+          }
+          e.preventDefault();
+        }
+
+        // Arrow nudge
+        if (
+          ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key) &&
+          selectedId >= 0
+        ) {
+          const f = frames.find((f) => f.id === selectedId);
+          if (!f) return;
+          const step = e.shiftKey ? 0.1 : 0.5;
+          if (!e._undoPushed) {
+            pushUndo();
+            e._undoPushed = true;
+          }
+          if (e.key === "ArrowLeft") f.x -= step;
+          if (e.key === "ArrowRight") f.x += step;
+          if (e.key === "ArrowUp") f.y -= step;
+          if (e.key === "ArrowDown") f.y += step;
+          f.x = Math.round(f.x * 10) / 10;
+          f.y = Math.round(f.y * 10) / 10;
+          syncSliders(f);
+          render();
+          e.preventDefault();
+        }
+      });
+
+      window.addEventListener("keyup", (e) => {
+        if (e.key === " ") {
+          spaceDown = false;
+          if (mode !== "pan") wrap.classList.remove("panning");
+        }
+      });
+
+      // ── Panel resize ──
+      {
+        const handle = $("panelResize");
+        const panel = $("panelCol");
+        let resizing = false,
+          startX,
+          startW;
+        handle.addEventListener("mousedown", (e) => {
+          resizing = true;
+          startX = e.clientX;
+          startW = panel.offsetWidth;
+          e.preventDefault();
+        });
+        window.addEventListener("mousemove", (e) => {
+          if (!resizing) return;
+          const diff = startX - e.clientX;
+          panel.style.width =
+            Math.max(280, Math.min(600, startW + diff)) + "px";
+        });
+        window.addEventListener("mouseup", () => {
+          resizing = false;
+        });
+      }
+
+      // ── Output ──
+      // --- AUTO GENERATE ID DARI NAMA ---
+      if ($("templateName")) {
+        $("templateName").addEventListener("input", (e) => {
+          const slug = e.target.value
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/(^-|-$)+/g, "");
+          $("templateId").value = slug || "template-baru";
+          updateOutput();
+        });
+      }
+      if ($("templateCategory")) {
+        $("templateCategory").addEventListener("input", updateOutput);
+      }
+
+      // --- FUNGSI UPDATE DUA OUTPUT SEKALIGUS ---
+      function updateOutput() {
+        const tName = $("templateName")
+          ? $("templateName").value
+          : "Template Baru";
+        const tId = $("templateId") ? $("templateId").value : "template-baru";
+        const tCat = $("templateCategory")
+          ? $("templateCategory").value
+          : "classic";
+
+        const slots = frames.map((f) => ({
+          id: f.id,
+          captureIndex: f.id,
+          xPct: Number((f.x / 100).toFixed(3)),
+          yPct: Number((f.y / 100).toFixed(3)),
+          wPct: Number((f.w / 100).toFixed(3)),
+          hPct: Number((f.h / 100).toFixed(3)),
+          rotateDeg: f.rot,
+          mirror: f.mirror,
+          cornerRadius: f.radius || 0,
+        }));
+
+        const configObj = {
+          id: tId,
+          canvas: { width: canvasW, height: canvasH },
+          assets: { background: "bg.png", overlay: "overlay.png" },
+          photoSlots: slots,
+        };
+
+        const manifestObj = {
+          id: tId,
+          name: tName,
+          thumbnail: `assets/templates/${tId}/thumb.jpg`,
+          category: tCat,
+        };
+
+        // Cetak ke layar
+        if ($("outputCode"))
+          $("outputCode").textContent = JSON.stringify(configObj, null, 2);
+        if ($("outputManifest"))
+          $("outputManifest").textContent =
+            JSON.stringify(manifestObj, null, 2) + ",";
+      }
+
+      // --- TOMBOL DOWNLOAD CONFIG ---
+      if ($("downloadBtn")) {
+        $("downloadBtn").addEventListener("click", () => {
+          const dataStr =
+            "data:text/json;charset=utf-8," +
+            encodeURIComponent($("outputCode").textContent);
+          const dlAnchorElem = document.createElement("a");
+          dlAnchorElem.setAttribute("href", dataStr);
+          dlAnchorElem.setAttribute("download", "config.json");
+          document.body.appendChild(dlAnchorElem);
+          dlAnchorElem.click();
+          dlAnchorElem.remove();
+          toast("config.json berhasil di-download!");
+        });
+      }
+
+      // --- TOMBOL COPY MANIFEST ---
+      if ($("copyManifestBtn")) {
+        $("copyManifestBtn").addEventListener("click", () => {
+          navigator.clipboard.writeText($("outputManifest").textContent);
+
+          // Efek tombol berubah saat dicopy
+          const btn = $("copyManifestBtn");
+          btn.textContent = "✓ Copied";
+          btn.style.background = "var(--accent2)";
+          btn.style.color = "#000";
+          setTimeout(() => {
+            btn.textContent = "Copy Snippet";
+            btn.style.background = "";
+            btn.style.color = "";
+          }, 1500);
+
+          toast("Snippet manifest disalin!");
+        });
+      }
+
+      // ============================ INIT =============================
+      initFrames(3);
+      requestAnimationFrame(() => fitToView());
+      // Re-fit on window resize
+      window.addEventListener("resize", fitToView);
+      // Trigger update saat nama template diketik
+      if ($("templateId")) {
+        $("templateId").addEventListener("input", updateOutput);
+      }
+    </script>
+  </body>
+</html>

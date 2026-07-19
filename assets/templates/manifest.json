@@ -1,0 +1,26 @@
+[
+  {
+    "id": "night-movie",
+    "name": "night-movie",
+    "thumbnail": "assets/templates/night-movie/thumb.jpg",
+    "category": "classic"
+  },
+  {
+    "id": "y2k-retro",
+    "name": "y2k-retro",
+    "thumbnail": "assets/templates/y2k-retro/thumb.jpg",
+    "category": "classic"
+  },
+  {
+    "id": "flower1",
+    "name": "Flower1",
+    "thumbnail": "assets/templates/flower1/thumb.jpg",
+    "category": "Flower"
+  },
+  {
+    "id": "paper",
+    "name": "Paper",
+    "thumbnail": "assets/templates/paper/thumb.jpg",
+    "category": "classic"
+  }
+]
