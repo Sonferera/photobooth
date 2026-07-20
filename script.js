@@ -273,17 +273,19 @@ async function startCamera(deviceId = null) {
     await populateCameraDropdown(deviceId || settings.deviceId);
 
     const btnStartCap = document.getElementById("btn-start-capture");
-    btnStartCap.style.display = "inline-block";
+    if (btnStartCap) {
+      btnStartCap.style.display = "inline-block";
 
-    btnStartCap.replaceWith(btnStartCap.cloneNode(true));
-    document
-      .getElementById("btn-start-capture")
-      .addEventListener("click", function () {
-        this.style.display = "none";
-        const camSelector = document.querySelector(".camera-selector");
-        if (camSelector) camSelector.style.display = "none";
-        tampilkanCountdownAndJepret();
-      });
+      btnStartCap.replaceWith(btnStartCap.cloneNode(true));
+      document
+        .getElementById("btn-start-capture")
+        .addEventListener("click", function () {
+          this.style.display = "none";
+          const camSelector = document.querySelector(".camera-selector");
+          if (camSelector) camSelector.style.display = "none";
+          tampilkanCountdownAndJepret();
+        });
+    }
   } catch (err) {
     if (loadingOverlay) loadingOverlay.style.display = "none";
     console.error("Camera error:", err.name, err.message);
