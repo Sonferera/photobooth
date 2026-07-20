@@ -91,7 +91,7 @@ function updateVideoTransform() {
 
   // Jika HP landscape tapi stream portrait (berarti OS melock rotasi)
   if (isLandscapePhysical && isPortraitStream) {
-    const rotDeg = deviceOrientationAngle === 90 ? -90 : 90;
+    let rotDeg = deviceOrientationAngle;
     const mirrorScale = isFrontCameraActive ? "scaleX(-1)" : "scaleX(1)";
     
     // Set video element menjadi 3:4 secara layout, lalu rotasi ke 4:3
@@ -100,7 +100,7 @@ function updateVideoTransform() {
     video.style.left = "50%";
     video.style.width = "75%";       // 3/4 dari container
     video.style.height = "133.333%"; // 4/3 dari container
-    video.style.transform = `translate(-50%, -50%) rotate(${rotDeg}deg) ${mirrorScale}`;
+    video.style.transform = `translate(-50%, -50%) ${mirrorScale} rotate(${rotDeg}deg)`;
   } else {
     // Normal
     const mirrorScale = isFrontCameraActive ? "scaleX(-1)" : "none";
@@ -537,12 +537,12 @@ function ambilFotoTemporer() {
     tempCtx.save();
     tempCtx.translate(tempCanvas.width / 2, tempCanvas.height / 2);
     
-    const rotRad = deviceOrientationAngle === 90 ? -Math.PI / 2 : Math.PI / 2;
-    tempCtx.rotate(rotRad);
-
     if (isFrontCameraActive) {
       tempCtx.scale(-1, 1);
     }
+    
+    let rotRad = deviceOrientationAngle === 90 ? Math.PI / 2 : -Math.PI / 2;
+    tempCtx.rotate(rotRad);
 
     // Gambar video dengan titik tengah sebagai poros
     tempCtx.drawImage(
