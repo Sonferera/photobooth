@@ -217,16 +217,34 @@ async function startCamera(deviceId = null) {
       currentStream.getTracks().forEach((track) => track.stop());
     }
 
-    const videoConstraints = { aspect_Ratio: 4 / 3 };
+    const videoConstraints = { aspectRatio: { ideal: 4 / 3 } };
     if (deviceId) {
       videoConstraints.deviceId = { exact: deviceId };
     } else {
       videoConstraints.facingMode = "user";
     }
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: videoConstraints,
-    });
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: videoConstraints,
+      });
+    } catch (constraintErr) {
+      // Fallback: coba tanpa constraint spesifik jika gagal
+      console.warn("Constraint awal gagal, mencoba fallback:", constraintErr);
+      const fallbackConstraints = deviceId
+        ? { deviceId: { exact: deviceId } }
+        : { facingMode: "user" };
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: fallbackConstraints,
+        });
+      } catch (fallbackErr) {
+        // Fallback terakhir: tanpa constraint sama sekali
+        console.warn("Fallback kedua gagal, mencoba video: true:", fallbackErr);
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+    }
 
     currentStream = stream;
     video.srcObject = stream;
@@ -268,10 +286,21 @@ async function startCamera(deviceId = null) {
       });
   } catch (err) {
     if (loadingOverlay) loadingOverlay.style.display = "none";
-    alert(
-      "Kamera tidak bisa diakses! Pastikan kamu telah mengizinkan akses di browser.",
-    );
-    console.error(err);
+    console.error("Camera error:", err.name, err.message);
+
+    let msg = "Kamera tidak bisa diakses!\n\n";
+    if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+      msg += "Izin kamera ditolak. Coba:\n1. Klik ikon gembok/kamera di address bar\n2. Izinkan kamera\n3. Refresh halaman";
+    } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+      msg += "Tidak ditemukan kamera pada perangkat ini.";
+    } else if (err.name === "NotReadableError" || err.name === "TrackStartError") {
+      msg += "Kamera sedang digunakan aplikasi lain. Tutup aplikasi lain yang menggunakan kamera, lalu refresh.";
+    } else if (err.name === "OverconstrainedError") {
+      msg += "Kamera tidak mendukung pengaturan yang diminta. Coba refresh halaman.";
+    } else {
+      msg += "Pastikan kamu telah mengizinkan akses kamera di browser.";
+    }
+    alert(msg);
   }
 }
 
