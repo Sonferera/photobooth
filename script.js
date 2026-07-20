@@ -217,7 +217,7 @@ async function startCamera(deviceId = null) {
       currentStream.getTracks().forEach((track) => track.stop());
     }
 
-    const videoConstraints = { aspect_ratio: 4 / 3 };
+    const videoConstraints = { aspect_Ratio: 4 / 3 };
     if (deviceId) {
       videoConstraints.deviceId = { exact: deviceId };
     } else {
