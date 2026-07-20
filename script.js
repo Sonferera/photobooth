@@ -32,6 +32,7 @@ const sessionState = {
 };
 
 const configCache = new Map();
+let currentStream = null; // Menyimpan status kamera yang sedang menyala
 
 // ── 3. DOM ELEMENTS ──
 const video = document.getElementById("camera-stream");
@@ -203,40 +204,108 @@ function selectFilter(filterCss, btn) {
 // ═══════════════════════════════════════════════════════════════
 //  CAMERA & CAPTURE
 // ═══════════════════════════════════════════════════════════════
-async function startCamera() {
+// 5. CAMERA & CAPTURE LOGIC
+async function startCamera(deviceId = null) {
   const loadingOverlay = document.getElementById("loading-overlay");
 
   try {
     if (loadingOverlay) loadingOverlay.style.display = "flex";
 
+    // Matikan lensa yang sedang menyala sebelum pindah ke lensa baru
+    if (currentStream) {
+      currentStream.getTracks().forEach((track) => track.stop());
+    }
+
+    // Atur permintaan kamera (Jika ada deviceId spesifik, gunakan itu. Jika tidak, prioritaskan kamera depan)
+    const videoConstraints = { aspect_ratio: 4 / 3 };
+    if (deviceId) {
+      videoConstraints.deviceId = { exact: deviceId };
+    } else {
+      videoConstraints.facingMode = "user"; // "user" = kamera depan, "environment" = belakang
+    }
+
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { aspectRatio: 4 / 3 },
+      video: videoConstraints,
     });
+
+    currentStream = stream; // Simpan ke global variable
+    video.srcObject = stream;
 
     if (loadingOverlay) loadingOverlay.style.display = "none";
 
-    video.srcObject = stream;
     sessionState.capturedPhotos = [];
     sessionState.currentCaptureIndex = 0;
 
-    // Reset filter ke Normal
-    sessionState.selectedFilter = "none";
-    video.style.filter = "";
-    renderFilterBar(); // reset active state
-
-    // Preload template assets untuk preview
-    await preloadTemplateAssets();
-
-    // Tampilkan camera mode
     goToStep("step-capture");
-    showCameraMode();
     updateCaptureText();
+
+    // PENTING: Panggil fungsi pencari lensa HANYA SETELAH izin kamera diberikan
+    await populateCameraDropdown(deviceId);
+
+    const btnStartCap = document.getElementById("btn-start-capture");
+    btnStartCap.style.display = "inline-block";
+
+    btnStartCap.replaceWith(btnStartCap.cloneNode(true));
+    document
+      .getElementById("btn-start-capture")
+      .addEventListener("click", function () {
+        this.style.display = "none";
+        // Sembunyikan pilihan kamera saat mulai jepret agar tidak mengganggu
+        document.querySelector(".camera-selector").style.display = "none";
+        tampilkanCountdownAndJepret();
+      });
   } catch (err) {
     if (loadingOverlay) loadingOverlay.style.display = "none";
-    alert(
-      "Kamera tidak bisa diakses! Pastikan kamu telah mengizinkan akses kamera.",
-    );
+    alert("Kamera tidak bisa diakses! Pastikan kamu telah mengizinkan akses.");
     console.error(err);
+  }
+}
+
+// FUNGSI BARU: Mendata semua lensa di HP/Laptop
+async function populateCameraDropdown(activeDeviceId) {
+  const selectorContainer = document.querySelector(".camera-selector");
+  const selectElement = document.getElementById("camera-select");
+
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoInputDevices = devices.filter(
+      (device) => device.kind === "videoinput",
+    );
+
+    // Jika kameranya cuma 1 (misal laptop lawas), tidak usah tampilkan dropdown
+    if (videoInputDevices.length <= 1) {
+      selectorContainer.style.display = "none";
+      return;
+    }
+
+    selectorContainer.style.display = "block";
+    selectElement.innerHTML = ""; // Bersihkan isi dropdown lama
+
+    videoInputDevices.forEach((device, index) => {
+      const option = document.createElement("option");
+      option.value = device.deviceId;
+      // Gunakan nama asli lensa dari OS, atau nama generic jika OS menyembunyikannya
+      option.text = device.label || `Kamera ${index + 1}`;
+
+      // Beri tanda "Terpilih" pada kamera yang sedang aktif
+      if (activeDeviceId && device.deviceId === activeDeviceId) {
+        option.selected = true;
+      } else if (
+        !activeDeviceId &&
+        device.label.toLowerCase().includes("front")
+      ) {
+        option.selected = true;
+      }
+
+      selectElement.appendChild(option);
+    });
+
+    // Deteksi saat user memilih lensa lain di dropdown
+    selectElement.onchange = (e) => {
+      startCamera(e.target.value); // Restart fungsi kamera dengan lensa baru
+    };
+  } catch (error) {
+    console.error("Gagal mendata kamera:", error);
   }
 }
 
@@ -634,9 +703,7 @@ function setupEventListeners() {
   });
 
   // Review: Retake & Next
-  document
-    .getElementById("btn-retake")
-    .addEventListener("click", handleRetake);
+  document.getElementById("btn-retake").addEventListener("click", handleRetake);
   document.getElementById("btn-next").addEventListener("click", handleNext);
 
   // Result: Download

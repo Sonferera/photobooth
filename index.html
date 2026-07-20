@@ -59,6 +59,18 @@
           <!-- Camera Mode -->
           <div id="capture-camera-mode">
             <p class="capture-info" id="capture-subtitle">Foto 1 dari 3</p>
+            <!-- TAMBAHAN: Pembungkus Dropdown Kamera -->
+            <div
+              class="camera-selector"
+              style="
+                display: none;
+                width: 100%;
+                max-width: 380px;
+                margin: 0 auto 10px;
+              "
+            >
+              <select id="camera-select" class="camera-dropdown"></select>
+            </div>
             <div class="video-container">
               <video id="camera-stream" autoplay playsinline></video>
               <div
