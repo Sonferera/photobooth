@@ -34,7 +34,6 @@ const sessionState = {
 const configCache = new Map();
 let currentStream = null; // Menyimpan status kamera yang sedang menyala
 let isFrontCameraActive = true; // Track kamera depan/belakang
-let deviceOrientationAngle = 0; // 0 = portrait, 90 = landscape-right, -90 = landscape-left
 
 // ── 3. DOM ELEMENTS ──
 const video = document.getElementById("camera-stream");
@@ -48,62 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
   loadManifest();
   renderFilterBar();
   setupEventListeners();
-  initOrientationDetection();
 });
-
-// ── 5. DEVICE ORIENTATION DETECTION ──
-// Deteksi orientasi fisik HP agar kamera bisa menyesuaikan seperti kamera bawaan
-function initOrientationDetection() {
-  if (!window.DeviceOrientationEvent) return;
-
-  let debounceTimer = null;
-  let lastAngle = 0;
-
-  window.addEventListener(
-    "deviceorientation",
-    (e) => {
-      if (e.gamma === null) return;
-
-      // Tentukan orientasi fisik dari gyroscope gamma
-      let angle = 0;
-      if (Math.abs(e.gamma) > 45) {
-        angle = e.gamma > 0 ? 90 : -90;
-      }
-
-      if (angle === lastAngle) return;
-      lastAngle = angle;
-
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        // Hanya kompensasi jika layar tidak ikut berputar (auto-rotate off)
-        const screenAngle =
-          screen.orientation ? screen.orientation.angle : 0;
-        if (screenAngle === 0 || screenAngle === 180) {
-          deviceOrientationAngle = angle;
-        } else {
-          deviceOrientationAngle = 0;
-        }
-        updateVideoTransform();
-      }, 250);
-    },
-    true,
-  );
-}
-
-function updateVideoTransform() {
-  if (!video || !currentStream) return;
-
-  const mirror = isFrontCameraActive ? "scaleX(-1) " : "";
-
-  if (deviceOrientationAngle === 0) {
-    // Portrait — normal
-    video.style.transform = mirror.trim() || "none";
-  } else {
-    // Landscape — rotasi kompensasi + scale agar video tetap fill container 4:3
-    const rotDeg = deviceOrientationAngle === 90 ? -90 : 90;
-    video.style.transform = `${mirror}rotate(${rotDeg}deg) scale(1.333)`;
-  }
-}
 
 // ═══════════════════════════════════════════════════════════════
 //  NAVIGATION
@@ -311,15 +255,14 @@ async function startCamera(deviceId = null) {
     const settings = track.getSettings();
     const label = track.label.toLowerCase();
 
-    // Jika kamera belakang, hilangkan efek cermin
-    // Set state kamera depan/belakang
+    // Set state kamera depan/belakang + mirror
     if (settings.facingMode === "environment" || label.includes("back")) {
       isFrontCameraActive = false;
+      video.style.transform = "none";
     } else {
       isFrontCameraActive = true;
+      video.style.transform = "scaleX(-1)"; // Kamera depan harus cermin
     }
-    // Terapkan transform (mirror + orientasi)
-    updateVideoTransform();
 
     if (loadingOverlay) loadingOverlay.style.display = "none";
 
@@ -515,55 +458,20 @@ function ambilFotoTemporer() {
 
   const tempCanvas = document.createElement("canvas");
   const tempCtx = tempCanvas.getContext("2d");
+  tempCanvas.width = video.videoWidth;
+  tempCanvas.height = video.videoHeight;
 
-  const isLandscape = deviceOrientationAngle !== 0;
-
-  if (isLandscape) {
-    // Landscape: swap dimensi agar foto hasil sesuai orientasi user
-    tempCanvas.width = video.videoHeight;
-    tempCanvas.height = video.videoWidth;
-  } else {
-    tempCanvas.width = video.videoWidth;
-    tempCanvas.height = video.videoHeight;
+  // Mirror untuk kamera depan
+  if (isFrontCameraActive) {
+    tempCtx.translate(tempCanvas.width, 0);
+    tempCtx.scale(-1, 1);
   }
 
-  tempCtx.save();
-
-  if (isLandscape) {
-    // Rotasi canvas agar gambar tegak sesuai orientasi fisik HP
-    tempCtx.translate(tempCanvas.width / 2, tempCanvas.height / 2);
-    const rotRad =
-      deviceOrientationAngle === 90 ? -Math.PI / 2 : Math.PI / 2;
-    tempCtx.rotate(rotRad);
-    if (isFrontCameraActive) {
-      tempCtx.scale(-1, 1);
-    }
-    tempCtx.drawImage(
-      video,
-      -video.videoWidth / 2,
-      -video.videoHeight / 2,
-      video.videoWidth,
-      video.videoHeight,
-    );
-  } else {
-    // Portrait: render normal
-    if (isFrontCameraActive) {
-      tempCtx.translate(tempCanvas.width, 0);
-      tempCtx.scale(-1, 1);
-    }
-    if (sessionState.selectedFilter !== "none") {
-      tempCtx.filter = sessionState.selectedFilter;
-    }
-    tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
-  }
-
-  tempCtx.restore();
-
-  // Terapkan filter untuk landscape (dilakukan setelah rotasi)
-  if (isLandscape && sessionState.selectedFilter !== "none") {
+  if (sessionState.selectedFilter !== "none") {
     tempCtx.filter = sessionState.selectedFilter;
-    tempCtx.drawImage(tempCanvas, 0, 0);
   }
+
+  tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
   tempCtx.filter = "none";
 
   sessionState.capturedPhotos.push(tempCanvas);
