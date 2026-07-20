@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
 //  PHOTOBOOTH APP — script.js
-//  Fitur: Filter, Live Preview, Retake, Timer Konfigurabel
+//  Fitur: Filter, Live Preview, Retake, Timer Konfigurabel, Auto-Camera
 // ═══════════════════════════════════════════════════════════════
 
 // ── 1. CONSTANTS ──
@@ -113,6 +113,9 @@ async function selectTemplate(templateId) {
 
     sessionState.selectedTemplate = config;
 
+    // PENTING: Panggil preload agar gambar tersedia untuk fungsi Live Preview / Mini Preview!
+    await preloadTemplateAssets();
+
     // Cek apakah template punya opsi mode
     if (config.modes && config.modes.length > 0) {
       tampilkanModalMode(config);
@@ -204,32 +207,41 @@ function selectFilter(filterCss, btn) {
 // ═══════════════════════════════════════════════════════════════
 //  CAMERA & CAPTURE
 // ═══════════════════════════════════════════════════════════════
-// 5. CAMERA & CAPTURE LOGIC
 async function startCamera(deviceId = null) {
   const loadingOverlay = document.getElementById("loading-overlay");
 
   try {
     if (loadingOverlay) loadingOverlay.style.display = "flex";
 
-    // Matikan lensa yang sedang menyala sebelum pindah ke lensa baru
     if (currentStream) {
       currentStream.getTracks().forEach((track) => track.stop());
     }
 
-    // Atur permintaan kamera (Jika ada deviceId spesifik, gunakan itu. Jika tidak, prioritaskan kamera depan)
     const videoConstraints = { aspect_ratio: 4 / 3 };
     if (deviceId) {
       videoConstraints.deviceId = { exact: deviceId };
     } else {
-      videoConstraints.facingMode = "user"; // "user" = kamera depan, "environment" = belakang
+      videoConstraints.facingMode = "user";
     }
 
     const stream = await navigator.mediaDevices.getUserMedia({
       video: videoConstraints,
     });
 
-    currentStream = stream; // Simpan ke global variable
+    currentStream = stream;
     video.srcObject = stream;
+
+    // --- SOLUSI: FLIP KAMERA & CEK BELAKANG/DEPAN ---
+    const track = stream.getVideoTracks()[0];
+    const settings = track.getSettings();
+    const label = track.label.toLowerCase();
+
+    // Jika kamera belakang, hilangkan efek cermin
+    if (settings.facingMode === "environment" || label.includes("back")) {
+      video.style.transform = "none";
+    } else {
+      video.style.transform = "scaleX(-1)"; // Kamera depan harus cermin
+    }
 
     if (loadingOverlay) loadingOverlay.style.display = "none";
 
@@ -239,8 +251,8 @@ async function startCamera(deviceId = null) {
     goToStep("step-capture");
     updateCaptureText();
 
-    // PENTING: Panggil fungsi pencari lensa HANYA SETELAH izin kamera diberikan
-    await populateCameraDropdown(deviceId);
+    // Generate dropdown lensa
+    await populateCameraDropdown(deviceId || settings.deviceId);
 
     const btnStartCap = document.getElementById("btn-start-capture");
     btnStartCap.style.display = "inline-block";
@@ -250,21 +262,23 @@ async function startCamera(deviceId = null) {
       .getElementById("btn-start-capture")
       .addEventListener("click", function () {
         this.style.display = "none";
-        // Sembunyikan pilihan kamera saat mulai jepret agar tidak mengganggu
-        document.querySelector(".camera-selector").style.display = "none";
+        const camSelector = document.querySelector(".camera-selector");
+        if (camSelector) camSelector.style.display = "none";
         tampilkanCountdownAndJepret();
       });
   } catch (err) {
     if (loadingOverlay) loadingOverlay.style.display = "none";
-    alert("Kamera tidak bisa diakses! Pastikan kamu telah mengizinkan akses.");
+    alert(
+      "Kamera tidak bisa diakses! Pastikan kamu telah mengizinkan akses di browser.",
+    );
     console.error(err);
   }
 }
 
-// FUNGSI BARU: Mendata semua lensa di HP/Laptop
 async function populateCameraDropdown(activeDeviceId) {
   const selectorContainer = document.querySelector(".camera-selector");
   const selectElement = document.getElementById("camera-select");
+  if (!selectorContainer || !selectElement) return;
 
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
@@ -272,43 +286,67 @@ async function populateCameraDropdown(activeDeviceId) {
       (device) => device.kind === "videoinput",
     );
 
-    // Jika kameranya cuma 1 (misal laptop lawas), tidak usah tampilkan dropdown
     if (videoInputDevices.length <= 1) {
       selectorContainer.style.display = "none";
       return;
     }
 
     selectorContainer.style.display = "block";
-    selectElement.innerHTML = ""; // Bersihkan isi dropdown lama
+    selectElement.innerHTML = "";
 
     videoInputDevices.forEach((device, index) => {
       const option = document.createElement("option");
       option.value = device.deviceId;
-      // Gunakan nama asli lensa dari OS, atau nama generic jika OS menyembunyikannya
-      option.text = device.label || `Kamera ${index + 1}`;
 
-      // Beri tanda "Terpilih" pada kamera yang sedang aktif
+      // --- SOLUSI: TRANSLATE NAMA LENSA MENJADI RAMAH USER ---
+      let labelRaw = device.label.toLowerCase();
+      let niceName = `Kamera ${index + 1}`;
+
+      if (labelRaw.includes("front") || labelRaw.includes("user")) {
+        niceName = "📸 Kamera Depan";
+        if (
+          videoInputDevices.filter((d) =>
+            d.label.toLowerCase().includes("front"),
+          ).length > 1
+        ) {
+          niceName += ` (${index + 1})`;
+        }
+      } else if (
+        labelRaw.includes("back") ||
+        labelRaw.includes("environment")
+      ) {
+        niceName = "🎥 Kamera Belakang";
+        const backCams = videoInputDevices.filter((d) =>
+          d.label.toLowerCase().includes("back"),
+        );
+        if (backCams.length > 1) {
+          niceName += ` Lensa ${backCams.indexOf(device) + 1}`;
+        }
+      } else {
+        niceName = device.label || niceName;
+      }
+
+      option.text = niceName;
+
+      // Pilih kamera yang aktif
       if (activeDeviceId && device.deviceId === activeDeviceId) {
         option.selected = true;
-      } else if (
-        !activeDeviceId &&
-        device.label.toLowerCase().includes("front")
-      ) {
+      } else if (!activeDeviceId && labelRaw.includes("front")) {
         option.selected = true;
       }
 
       selectElement.appendChild(option);
     });
 
-    // Deteksi saat user memilih lensa lain di dropdown
     selectElement.onchange = (e) => {
-      startCamera(e.target.value); // Restart fungsi kamera dengan lensa baru
+      startCamera(e.target.value);
     };
   } catch (error) {
     console.error("Gagal mendata kamera:", error);
   }
 }
 
+// Preload assets dijalankan sekali di awal pemilihan template
 async function preloadTemplateAssets() {
   const config = sessionState.selectedTemplate;
   const basePath = `assets/templates/${config.id}/`;
@@ -347,7 +385,6 @@ function updateCaptureText() {
 }
 
 function onCaptureClick() {
-  // Disable tombol biar ga double-click
   const btn = document.getElementById("btn-capture");
   btn.disabled = true;
   tampilkanCountdownAndJepret();
@@ -358,7 +395,6 @@ function tampilkanCountdownAndJepret() {
   countdownElement.textContent = timer;
   countdownElement.style.display = "flex";
 
-  // Jika timer = 0, langsung jepret (edge case)
   if (timer <= 0) {
     countdownElement.style.display = "none";
     ambilFotoTemporer();
@@ -379,31 +415,34 @@ function tampilkanCountdownAndJepret() {
 }
 
 function ambilFotoTemporer() {
-  // Flash effect
   const flash = document.getElementById("flash-overlay");
   if (flash) {
     flash.classList.remove("flash");
-    void flash.offsetWidth; // trigger reflow for re-animation
+    void flash.offsetWidth;
     flash.classList.add("flash");
   }
 
-  // Capture frame dari video dengan filter applied
   const tempCanvas = document.createElement("canvas");
   const tempCtx = tempCanvas.getContext("2d");
   tempCanvas.width = video.videoWidth;
   tempCanvas.height = video.videoHeight;
 
-  // Apply filter ke canvas context
+  // Render kamera yang terbalik jika pakai kamera depan
+  if (video.style.transform === "scaleX(-1)") {
+    tempCtx.translate(tempCanvas.width, 0);
+    tempCtx.scale(-1, 1);
+  }
+
   if (sessionState.selectedFilter !== "none") {
     tempCtx.filter = sessionState.selectedFilter;
   }
+
   tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
-  tempCtx.filter = "none"; // reset
+  tempCtx.filter = "none";
 
   sessionState.capturedPhotos.push(tempCanvas);
   sessionState.currentCaptureIndex++;
 
-  // Masuk ke review mode
   showReview();
 }
 
@@ -420,7 +459,6 @@ function showReview() {
   document.getElementById("review-subtitle").textContent =
     `Foto ${current} dari ${total} selesai`;
 
-  // Ganti teks tombol jika foto terakhir
   const btnNext = document.getElementById("btn-next");
   if (current >= total) {
     btnNext.textContent = "✅ Selesai!";
@@ -428,7 +466,6 @@ function showReview() {
     btnNext.textContent = "✅ Lanjut";
   }
 
-  // Render mini preview bingkai
   renderMiniPreview();
 }
 
@@ -441,7 +478,6 @@ function renderMiniPreview() {
   const overlayImg = sessionState.previewOverlayImg;
   if (!bgImg) return;
 
-  // Hitung ukuran preview (max 350px lebar)
   const maxW = 350;
   const scale = maxW / config.canvas.width;
   previewCanvas.width = maxW;
@@ -450,15 +486,12 @@ function renderMiniPreview() {
   const w = previewCanvas.width;
   const h = previewCanvas.height;
 
-  // 1. Gambar background
   previewCtx.drawImage(bgImg, 0, 0, w, h);
 
-  // 2. Gambar foto-foto yang sudah diambil ke slot masing-masing
   config.photoSlots.forEach((slot, i) => {
     const targetIndex = sessionState.captureMap[i];
     const photoCanvas = sessionState.capturedPhotos[targetIndex];
     if (!photoCanvas) {
-      // Slot belum terisi — gambar placeholder transparan
       drawEmptySlot(previewCtx, slot, w, h, scale);
       return;
     }
@@ -472,7 +505,6 @@ function renderMiniPreview() {
     previewCtx.translate(centerX, centerY);
     previewCtx.rotate((slot.rotateDeg * Math.PI) / 180);
 
-    // Rounded corners
     if (slot.cornerRadius) {
       previewCtx.beginPath();
       previewCtx.roundRect(
@@ -487,7 +519,6 @@ function renderMiniPreview() {
 
     if (slot.mirror) previewCtx.scale(-1, 1);
 
-    // Object-fit: cover
     const sw = photoCanvas.width;
     const sh = photoCanvas.height;
     const sRatio = sw / sh;
@@ -520,7 +551,6 @@ function renderMiniPreview() {
     previewCtx.restore();
   });
 
-  // 3. Gambar overlay
   if (overlayImg) {
     previewCtx.drawImage(overlayImg, 0, 0, w, h);
   }
@@ -543,11 +573,9 @@ function drawEmptySlot(ctxRef, slot, w, h, scale) {
     ctxRef.rect(-pw / 2, -ph / 2, pw, ph);
   }
 
-  // Placeholder semi-transparan
   ctxRef.fillStyle = "rgba(0, 0, 0, 0.15)";
   ctxRef.fill();
 
-  // Border putus-putus
   ctxRef.setLineDash([4, 4]);
   ctxRef.strokeStyle = "rgba(255, 255, 255, 0.5)";
   ctxRef.lineWidth = 1.5;
@@ -557,25 +585,18 @@ function drawEmptySlot(ctxRef, slot, w, h, scale) {
   ctxRef.restore();
 }
 
-// ── Retake ──
 function handleRetake() {
-  // Hapus foto terakhir
   sessionState.capturedPhotos.pop();
   sessionState.currentCaptureIndex--;
-
-  // Kembali ke camera mode
   showCameraMode();
   updateCaptureText();
 }
 
-// ── Next / Selesai ──
 function handleNext() {
   if (sessionState.currentCaptureIndex >= sessionState.totalRequiredCaptures) {
-    // Semua foto selesai → matikan kamera, gabungkan
     stopCamera();
     gabungkanPhotoStrip();
   } else {
-    // Masih ada foto lagi → kembali ke camera mode
     showCameraMode();
     updateCaptureText();
   }
@@ -595,8 +616,6 @@ function stopCamera() {
 function gabungkanPhotoStrip() {
   goToStep("step-result");
   const config = sessionState.selectedTemplate;
-
-  // Gunakan image yang sudah di-preload
   const bgImg = sessionState.previewBgImg;
   const overlayImg = sessionState.previewOverlayImg;
 
@@ -610,10 +629,8 @@ function gabungkanPhotoStrip() {
   const w = canvas.width;
   const h = canvas.height;
 
-  // 1. Gambar BG
   ctx.drawImage(bgImg, 0, 0, w, h);
 
-  // 2. Gambar Foto-Foto
   config.photoSlots.forEach((slot, i) => {
     const targetIndex = sessionState.captureMap[i];
     const photoCanvas = sessionState.capturedPhotos[targetIndex];
@@ -628,7 +645,6 @@ function gabungkanPhotoStrip() {
     ctx.translate(centerX, centerY);
     ctx.rotate((slot.rotateDeg * Math.PI) / 180);
 
-    // Rounded Corners
     if (slot.cornerRadius) {
       ctx.beginPath();
       ctx.roundRect(
@@ -643,7 +659,6 @@ function gabungkanPhotoStrip() {
 
     if (slot.mirror) ctx.scale(-1, 1);
 
-    // Object-fit: cover
     const sw = photoCanvas.width;
     const sh = photoCanvas.height;
     const sRatio = sw / sh;
@@ -676,7 +691,6 @@ function gabungkanPhotoStrip() {
     ctx.restore();
   });
 
-  // 3. Gambar Overlay
   ctx.drawImage(overlayImg, 0, 0, w, h);
 }
 
@@ -684,41 +698,49 @@ function gabungkanPhotoStrip() {
 //  EVENT LISTENERS
 // ═══════════════════════════════════════════════════════════════
 function setupEventListeners() {
-  // Capture button
-  document
-    .getElementById("btn-capture")
-    .addEventListener("click", onCaptureClick);
+  const btnCapture = document.getElementById("btn-capture");
+  if (btnCapture) btnCapture.addEventListener("click", onCaptureClick);
 
-  // Timer selector
-  document.getElementById("timer-select").addEventListener("change", (e) => {
-    sessionState.timerDuration = parseInt(e.target.value);
-  });
+  const timerSelect = document.getElementById("timer-select");
+  if (timerSelect) {
+    timerSelect.addEventListener("change", (e) => {
+      sessionState.timerDuration = parseInt(e.target.value);
+    });
+  }
 
-  // Back from capture
-  document.getElementById("btn-back-capture").addEventListener("click", () => {
-    stopCamera();
-    document.getElementById("capture-camera-mode").style.display = "block";
-    document.getElementById("capture-review-mode").style.display = "none";
-    goToStep("step-landing");
-  });
+  const btnBackCapture = document.getElementById("btn-back-capture");
+  if (btnBackCapture) {
+    btnBackCapture.addEventListener("click", () => {
+      stopCamera();
+      document.getElementById("capture-camera-mode").style.display = "block";
+      document.getElementById("capture-review-mode").style.display = "none";
+      goToStep("step-landing");
+    });
+  }
 
-  // Review: Retake & Next
-  document.getElementById("btn-retake").addEventListener("click", handleRetake);
-  document.getElementById("btn-next").addEventListener("click", handleNext);
+  const btnRetake = document.getElementById("btn-retake");
+  if (btnRetake) btnRetake.addEventListener("click", handleRetake);
 
-  // Result: Download
-  document.getElementById("btn-download").addEventListener("click", () => {
-    const link = document.createElement("a");
-    link.download = `photobooth-${sessionState.selectedTemplate.id}.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-  });
+  const btnNext = document.getElementById("btn-next");
+  if (btnNext) btnNext.addEventListener("click", handleNext);
 
-  // Result: Restart
-  document.getElementById("btn-restart").addEventListener("click", () => {
-    stopCamera();
-    document.getElementById("capture-camera-mode").style.display = "block";
-    document.getElementById("capture-review-mode").style.display = "none";
-    goToStep("step-landing");
-  });
+  const btnDownload = document.getElementById("btn-download");
+  if (btnDownload) {
+    btnDownload.addEventListener("click", () => {
+      const link = document.createElement("a");
+      link.download = `photobooth-${sessionState.selectedTemplate.id}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  }
+
+  const btnRestart = document.getElementById("btn-restart");
+  if (btnRestart) {
+    btnRestart.addEventListener("click", () => {
+      stopCamera();
+      document.getElementById("capture-camera-mode").style.display = "block";
+      document.getElementById("capture-review-mode").style.display = "none";
+      goToStep("step-landing");
+    });
+  }
 }
