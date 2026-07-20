@@ -632,6 +632,114 @@ video {
   }
 }
 
+/* ══════════════════════════════════════════
+   LANDSCAPE ORIENTATION (Mobile)
+   ══════════════════════════════════════════ */
+@media (orientation: landscape) and (max-height: 500px) {
+  .capture-body {
+    max-width: 100%;
+    padding: 8px 16px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .capture-info {
+    width: 100%;
+    margin-bottom: 4px;
+    font-size: 12px;
+  }
+
+  .camera-selector {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 4px !important;
+  }
+
+  #capture-camera-mode {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .video-container {
+    flex: 1 1 60%;
+    min-width: 0;
+    aspect-ratio: auto;
+    height: calc(100vh - 100px);
+    max-height: calc(100vh - 100px);
+    border-radius: var(--radius-xs);
+  }
+
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .filter-bar {
+    flex: 0 0 auto;
+    width: 100%;
+    padding: 4px 0;
+    gap: 6px;
+  }
+
+  .filter-btn {
+    padding: 5px 12px;
+    font-size: 11px;
+  }
+
+  .capture-controls {
+    flex: 0 0 auto;
+    width: 100%;
+    margin-top: 0;
+    gap: 8px;
+  }
+
+  .btn-capture {
+    padding: 10px 20px !important;
+    font-size: 14px !important;
+  }
+
+  .timer-selector {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  /* Navbar lebih compact */
+  .nav-inner {
+    height: 40px;
+  }
+
+  .nav-back, .nav-title {
+    font-size: 13px;
+  }
+
+  /* Review mode landscape */
+  #capture-review-mode {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #capture-review-mode .capture-info {
+    width: 100%;
+  }
+
+  .preview-wrapper {
+    max-width: 50vh;
+    max-height: calc(100vh - 120px);
+  }
+
+  .review-buttons {
+    margin-top: 8px;
+  }
+}
+
 @media (min-width: 640px) {
   .hero h1 {
     font-size: 48px;
