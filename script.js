@@ -92,6 +92,9 @@ function updateVideoTransform() {
   // Jika HP landscape tapi stream portrait (berarti OS melock rotasi)
   if (isLandscapePhysical && isPortraitStream) {
     let rotDeg = deviceOrientationAngle;
+    if (isFrontCameraActive) {
+      rotDeg = -rotDeg;
+    }
     const mirrorScale = isFrontCameraActive ? "scaleX(-1)" : "scaleX(1)";
     
     // Set video element menjadi 3:4 secara layout, lalu rotasi ke 4:3
@@ -542,6 +545,9 @@ function ambilFotoTemporer() {
     }
     
     let rotRad = deviceOrientationAngle === 90 ? Math.PI / 2 : -Math.PI / 2;
+    if (isFrontCameraActive) {
+      rotRad = -rotRad;
+    }
     tempCtx.rotate(rotRad);
 
     // Gambar video dengan titik tengah sebagai poros
